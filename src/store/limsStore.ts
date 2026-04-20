@@ -1,0 +1,204 @@
+import { create } from "zustand";
+import {
+  orders as seedOrders,
+  patients as seedPatients,
+  labTests as seedTests,
+  testPackages as seedPackages,
+  type Order,
+  type OrderStatus,
+  type OrderTest,
+  type OrderSample,
+  type Patient,
+  type LabTest,
+  type TestPackage,
+  type TimelineEvent,
+  type TestStatus,
+} from "@/data/lims";
+
+const baseDate = new Date().toISOString();
+
+const buildTimeline = (status: OrderStatus): TimelineEvent[] => {
+  const order = [
+    "order_confirmed",
+    "sample_collected",
+    "processing",
+    "result_entered",
+    "validation",
+    "published",
+  ] as const;
+  const labels: Record<(typeof order)[number], string> = {
+    order_confirmed: "Order Confirmed",
+    sample_collected: "Sample collected",
+    processing: "Processing",
+    result_entered: "Result entered",
+    validation: "Validation pending",
+    published: "Result Published",
+  };
+  const map: Record<OrderStatus, number> = {
+    order_confirmed: 1,
+    sample_collected: 2,
+    result_entered: 4,
+    validation: 5,
+    published: 6,
+  };
+  const reachedIdx = map[status] - 1;
+  return order.map((k, i): TimelineEvent => ({
+    key: k,
+    label: labels[k],
+    timestamp: i <= reachedIdx ? baseDate : undefined,
+    by: i === 0 ? "Reception" : i <= reachedIdx ? "Tech. Sreeja" : undefined,
+    state: i < reachedIdx ? "done" : i === reachedIdx ? "current" : "todo",
+  }));
+};
+
+interface LimsState {
+  orders: Order[];
+  patients: Patient[];
+  tests: LabTest[];
+  packages: TestPackage[];
+
+  getOrder: (id: string) => Order | undefined;
+  collectSample: (orderId: string, sampleId: string, by: string) => void;
+  setTestStatus: (orderId: string, testId: string, status: TestStatus) => void;
+  bulkSetTestStatus: (orderId: string, testIds: string[], status: TestStatus) => void;
+  approveTest: (orderId: string, testId: string) => void;
+  rejectTest: (orderId: string, testId: string) => void;
+  publishTest: (orderId: string, testId: string) => void;
+  approveAll: (orderId: string) => void;
+  publishAll: (orderId: string) => void;
+  settleInvoice: (orderId: string) => void;
+  cancelInvoice: (orderId: string) => void;
+  addPatient: (p: Patient) => void;
+  addOrder: (o: Order) => void;
+  toggleTest: (testId: string) => void;
+  togglePackage: (packageId: string) => void;
+  updateTestPrice: (testId: string, price: number) => void;
+}
+
+const recomputeOrderStatus = (o: Order): Order => {
+  const tests = o.tests;
+  if (tests.length === 0) return o;
+  let status: OrderStatus = o.status;
+  if (tests.every((t) => t.status === "result_published")) status = "published";
+  else if (tests.every((t) => t.status === "result_approved" || t.status === "result_published"))
+    status = "validation";
+  else if (tests.some((t) => t.status === "result_entered")) status = "result_entered";
+  else if (o.samples.some((s) => s.status === "collected")) {
+    if (status === "order_confirmed") status = "sample_collected";
+  }
+  return { ...o, status, timeline: buildTimeline(status) };
+};
+
+const updateOrder = (orders: Order[], id: string, fn: (o: Order) => Order) =>
+  orders.map((o) => (o.id === id || o.number === id ? recomputeOrderStatus(fn(o)) : o));
+
+export const useLimsStore = create<LimsState>((set, get) => ({
+  orders: seedOrders,
+  patients: seedPatients,
+  tests: seedTests,
+  packages: seedPackages,
+
+  getOrder: (id) => get().orders.find((o) => o.id === id || o.number === id),
+
+  collectSample: (orderId, sampleId, by) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => ({
+        ...o,
+        samples: o.samples.map((sm): OrderSample =>
+          sm.id === sampleId
+            ? { ...sm, status: "collected", collectedBy: by, collectedAt: new Date().toISOString() }
+            : sm,
+        ),
+        tests: o.tests.map((t): OrderTest =>
+          o.samples.find((sm) => sm.id === sampleId)?.testIds.includes(t.testId) && t.status === "pending"
+            ? { ...t, status: "in_progress" }
+            : t,
+        ),
+      })),
+    })),
+
+  setTestStatus: (orderId, testId, status) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => ({
+        ...o,
+        tests: o.tests.map((t): OrderTest => (t.testId === testId ? { ...t, status } : t)),
+      })),
+    })),
+
+  bulkSetTestStatus: (orderId, testIds, status) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => ({
+        ...o,
+        tests: o.tests.map((t): OrderTest =>
+          testIds.includes(t.testId) ? { ...t, status } : t,
+        ),
+      })),
+    })),
+
+  approveTest: (orderId, testId) => get().setTestStatus(orderId, testId, "result_approved"),
+  rejectTest: (orderId, testId) => get().setTestStatus(orderId, testId, "in_progress"),
+  publishTest: (orderId, testId) => get().setTestStatus(orderId, testId, "result_published"),
+
+  approveAll: (orderId) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => ({
+        ...o,
+        tests: o.tests.map((t): OrderTest =>
+          t.status === "result_entered" ? { ...t, status: "result_approved" } : t,
+        ),
+      })),
+    })),
+
+  publishAll: (orderId) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => ({
+        ...o,
+        tests: o.tests.map((t): OrderTest =>
+          t.status === "result_approved" || t.status === "result_entered"
+            ? { ...t, status: "result_published" }
+            : t,
+        ),
+      })),
+    })),
+
+  settleInvoice: (orderId) =>
+    set((s) => ({
+      orders: s.orders.map((o) =>
+        o.id === orderId || o.number === orderId
+          ? {
+              ...o,
+              paymentStatus: "Paid",
+              paymentDate: new Date().toISOString(),
+              totals: { ...o.totals, paid: o.totals.total },
+            }
+          : o,
+      ),
+    })),
+
+  cancelInvoice: (orderId) =>
+    set((s) => ({
+      orders: s.orders.map((o) =>
+        o.id === orderId || o.number === orderId ? { ...o, paymentStatus: "Unpaid" } : o,
+      ),
+    })),
+
+  addPatient: (p) => set((s) => ({ patients: [p, ...s.patients] })),
+  addOrder: (o) => set((s) => ({ orders: [o, ...s.orders] })),
+
+  toggleTest: (testId) =>
+    set((s) => ({
+      tests: s.tests.map((t) => (t.id === testId ? { ...t, enabled: !t.enabled } : t)),
+    })),
+
+  togglePackage: (packageId) =>
+    set((s) => ({
+      packages: s.packages.map((p) => (p.id === packageId ? { ...p, enabled: !p.enabled } : p)),
+    })),
+
+  updateTestPrice: (testId, price) =>
+    set((s) => ({
+      tests: s.tests.map((t) => (t.id === testId ? { ...t, price } : t)),
+    })),
+}));
+
+export { buildTimeline };
