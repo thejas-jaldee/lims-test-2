@@ -13,6 +13,7 @@ import {
   type TestPackage,
   type TimelineEvent,
   type TestStatus,
+  type InvoiceActivity,
 } from "@/data/lims";
 
 const baseDate = new Date().toISOString();
@@ -66,8 +67,15 @@ interface LimsState {
   publishTest: (orderId: string, testId: string) => void;
   approveAll: (orderId: string) => void;
   publishAll: (orderId: string) => void;
-  settleInvoice: (orderId: string) => void;
-  cancelInvoice: (orderId: string) => void;
+  settleInvoice: (
+    orderId: string,
+    details: { amount: number; method: string; transactionId?: string; note?: string; by?: string },
+  ) => void;
+  cancelInvoice: (orderId: string, details?: { reason?: string; by?: string }) => void;
+  logInvoiceActivity: (
+    orderId: string,
+    activity: Omit<InvoiceActivity, "id" | "at"> & { at?: string },
+  ) => void;
   addPatient: (p: Patient) => void;
   addOrder: (o: Order) => void;
   toggleTest: (testId: string) => void;
@@ -91,6 +99,21 @@ const recomputeOrderStatus = (o: Order): Order => {
 
 const updateOrder = (orders: Order[], id: string, fn: (o: Order) => Order) =>
   orders.map((o) => (o.id === id || o.number === id ? recomputeOrderStatus(fn(o)) : o));
+
+const appendInvoiceActivity = (
+  order: Order,
+  activity: Omit<InvoiceActivity, "id" | "at"> & { at?: string },
+): Order => ({
+  ...order,
+  invoiceActivity: [
+    {
+      id: `invoice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      at: activity.at ?? new Date().toISOString(),
+      ...activity,
+    },
+    ...(order.invoiceActivity ?? []),
+  ],
+});
 
 export const useLimsStore = create<LimsState>((set, get) => ({
   orders: seedOrders,
@@ -161,24 +184,63 @@ export const useLimsStore = create<LimsState>((set, get) => ({
       })),
     })),
 
-  settleInvoice: (orderId) =>
+  settleInvoice: (orderId, details) =>
     set((s) => ({
-      orders: s.orders.map((o) =>
-        o.id === orderId || o.number === orderId
-          ? {
-              ...o,
-              paymentStatus: "Paid",
-              paymentDate: new Date().toISOString(),
-              totals: { ...o.totals, paid: o.totals.total },
-            }
-          : o,
-      ),
+      orders: s.orders.map((o) => {
+        if (o.id !== orderId && o.number !== orderId) return o;
+        const nextPaid = Math.min(o.totals.total, o.totals.paid + Math.max(details.amount, 0));
+        const nextStatus: Order["paymentStatus"] =
+          nextPaid <= 0 ? "Unpaid" : nextPaid >= o.totals.total ? "Paid" : "Partial";
+        return appendInvoiceActivity(
+          {
+            ...o,
+            paymentStatus: nextStatus,
+            paymentMethod: details.method || o.paymentMethod,
+            transactionId: details.transactionId || o.transactionId,
+            paymentDate: new Date().toISOString(),
+            totals: { ...o.totals, paid: nextPaid },
+          },
+          {
+            type: "payment",
+            title: nextStatus === "Paid" ? "Invoice settled" : "Payment recorded",
+            description:
+              details.note?.trim() ||
+              `${details.method} payment recorded for ₹${Math.max(details.amount, 0).toLocaleString("en-IN", {
+                maximumFractionDigits: 2,
+              })}.`,
+            by: details.by?.trim() || "Billing Desk",
+          },
+        );
+      }),
     })),
 
-  cancelInvoice: (orderId) =>
+  cancelInvoice: (orderId, details) =>
+    set((s) => ({
+      orders: s.orders.map((o) => {
+        if (o.id !== orderId && o.number !== orderId) return o;
+        return appendInvoiceActivity(
+          {
+            ...o,
+            paymentStatus: "Unpaid",
+            paymentMethod: undefined,
+            transactionId: undefined,
+            paymentDate: undefined,
+            totals: { ...o.totals, paid: 0 },
+          },
+          {
+            type: "cancelled",
+            title: "Invoice cancelled",
+            description: details?.reason?.trim() || "Invoice was cancelled and payment reset.",
+            by: details?.by?.trim() || "Billing Desk",
+          },
+        );
+      }),
+    })),
+
+  logInvoiceActivity: (orderId, activity) =>
     set((s) => ({
       orders: s.orders.map((o) =>
-        o.id === orderId || o.number === orderId ? { ...o, paymentStatus: "Unpaid" } : o,
+        o.id === orderId || o.number === orderId ? appendInvoiceActivity(o, activity) : o,
       ),
     })),
 

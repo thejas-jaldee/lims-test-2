@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { PrimarySidebar } from "@/components/layout/PrimarySidebar";
 import { SecondarySidebar } from "@/components/layout/SecondarySidebar";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/lims")({
   component: LimsLayout,
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/lims")({
 
 function LimsLayout() {
   const location = useLocation();
+  const isDashboard = location.pathname === "/lims" || location.pathname === "/lims/";
 
   useEffect(() => {
     document.body.style.overflow = "";
@@ -27,7 +29,12 @@ function LimsLayout() {
       <div className="flex flex-1">
         <PrimarySidebar />
         <SecondarySidebar />
-        <main className="flex-1 overflow-x-hidden bg-background px-3 py-4 md:px-4 lg:px-5">
+        <main
+          className={cn(
+            "flex-1 overflow-x-hidden px-3 py-4 md:px-4 lg:px-5",
+            isDashboard ? "bg-background" : "bg-surface-muted",
+          )}
+        >
           <div className="mx-auto w-full max-w-full">
             <Outlet />
           </div>

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, notFound, useLocation, useNavigate } from "@tanstack/react-router";
 import {
   Edit3,
   FileText,
@@ -69,6 +69,7 @@ const bulkActions: Array<{ key: BulkAction; label: string; icon: typeof Beaker }
 function OrderDetailsPage() {
   const { orderId } = Route.useLoaderData();
   const navigate = useNavigate();
+  const location = useLocation();
   const order = useLimsStore((s) => s.orders.find((o) => o.id === orderId || o.number === orderId)) as Order;
   const collectSample = useLimsStore((s) => s.collectSample);
   const bulkSet = useLimsStore((s) => s.bulkSetTestStatus);
@@ -77,6 +78,10 @@ function OrderDetailsPage() {
 
   const patient = getPatient(order.patientId)!;
   const meta = orderStatusMeta[order.status];
+  const canonicalBasePath = `/lims/orders/${order.id}`;
+  const legacyBasePath = `/lims/orders/${order.number}`;
+  const isNestedChildRoute =
+    location.pathname !== canonicalBasePath && location.pathname !== legacyBasePath;
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
@@ -137,6 +142,10 @@ function OrderDetailsPage() {
     setBulkAction(null);
     setSelectedTestIds([]);
   };
+
+  if (isNestedChildRoute) {
+    return <Outlet />;
+  }
 
   return (
     <div>

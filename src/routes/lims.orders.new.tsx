@@ -545,8 +545,8 @@ function CreateOrderPage() {
               <SummaryRow label="GST (18%)" value={formatINR(gst)} />
 
               <div className="flex items-center justify-between border-t border-border pt-3">
-                <span className="text-lg font-semibold">Total</span>
-                <span className="text-xl font-bold text-primary">{formatINR(total)}</span>
+                <span className="text-md font-semibold">Total</span>
+                <span className="text-md font-bold text-primary">{formatINR(total)}</span>
               </div>
 
               <button

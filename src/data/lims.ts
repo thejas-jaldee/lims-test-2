@@ -120,6 +120,15 @@ export interface TimelineEvent {
   state: "done" | "current" | "todo";
 }
 
+export interface InvoiceActivity {
+  id: string;
+  type: "created" | "shared" | "printed" | "payment" | "cancelled" | "note";
+  title: string;
+  description?: string;
+  by: string;
+  at: string;
+}
+
 export interface Order {
   id: string;
   number: string;
@@ -138,6 +147,7 @@ export interface Order {
   tests: OrderTest[];
   samples: OrderSample[];
   timeline: TimelineEvent[];
+  invoiceActivity?: InvoiceActivity[];
   totals: {
     subtotal: number;
     doctorFee: number;
@@ -564,6 +574,24 @@ export const orders: Order[] = [
       },
     ],
     timeline: buildTimeline("order_confirmed"),
+    invoiceActivity: [
+      {
+        id: "INV-ACT-1041-1",
+        type: "created",
+        title: "Invoice generated",
+        description: "Invoice created for walk-in lab order.",
+        by: "Reception · Neethu",
+        at: "2026-03-17T08:16:00",
+      },
+      {
+        id: "INV-ACT-1041-2",
+        type: "payment",
+        title: "Payment received",
+        description: "Full amount collected through UPI.",
+        by: "Cashier · Anjana",
+        at: "2026-03-17T08:20:00",
+      },
+    ],
     totals: {
       subtotal: 960,
       doctorFee: 0,
@@ -619,6 +647,32 @@ export const orders: Order[] = [
       },
     ],
     timeline: buildTimeline("published"),
+    invoiceActivity: [
+      {
+        id: "INV-ACT-1040-1",
+        type: "created",
+        title: "Invoice generated",
+        description: "Invoice created for OPD order.",
+        by: "Reception · Neethu",
+        at: "2026-03-17T07:48:00",
+      },
+      {
+        id: "INV-ACT-1040-2",
+        type: "payment",
+        title: "Payment received",
+        description: "Full amount collected through card.",
+        by: "Cashier · Priya",
+        at: "2026-03-17T08:00:00",
+      },
+      {
+        id: "INV-ACT-1040-3",
+        type: "printed",
+        title: "Invoice printed",
+        description: "Printed at front desk for patient copy.",
+        by: "Reception · Neethu",
+        at: "2026-03-17T08:05:00",
+      },
+    ],
     totals: {
       subtotal: 2210,
       doctorFee: 0,
