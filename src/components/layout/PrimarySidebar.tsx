@@ -32,20 +32,20 @@ const items: PrimaryItem[] = [
 
 export function PrimarySidebar() {
   return (
-    <aside className="hidden w-[88px] shrink-0 flex-col items-stretch gap-1 border-r border-border bg-surface py-3 md:flex">
+    <aside className="hidden w-[74px] shrink-0 flex-col items-stretch gap-1 border-r border-border bg-surface py-4 md:flex">
       {items.map((item) => {
         const Icon = item.icon;
         const inner = (
           <div
             className={cn(
-              "mx-2 flex flex-col items-center gap-1.5 rounded-lg px-2 py-2.5 text-[11px] font-medium transition-colors",
+              "flex flex-col items-center gap-1.5 border-r-[3px] border-transparent px-2 py-3 text-[10px] font-semibold tracking-[-0.02em] transition-colors",
               item.active
-                ? "bg-primary-soft text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "bg-primary-soft text-primary border-r-primary"
+                : "text-[oklch(0.68_0.025_250)] hover:bg-muted hover:text-foreground",
             )}
           >
-            <Icon className={cn("h-5 w-5", item.active && "text-primary")} strokeWidth={1.75} />
-            <span>{item.label}</span>
+            <Icon className={cn("h-5 w-5", item.active && "text-primary")} strokeWidth={1.8} />
+            <span className="text-center leading-none">{item.label}</span>
           </div>
         );
         return item.to ? (

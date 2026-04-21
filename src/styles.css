@@ -11,7 +11,7 @@
 
 @theme inline {
   --font-sans:
-    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -72,17 +72,18 @@
   --color-violet-soft: var(--violet-soft);
 
   /* elevation */
-  --shadow-card: 0 1px 2px oklch(0.2 0.02 250 / 0.04), 0 4px 12px oklch(0.2 0.02 250 / 0.06);
-  --shadow-card-hover: 0 2px 4px oklch(0.2 0.02 250 / 0.06), 0 10px 24px oklch(0.2 0.02 250 / 0.10);
+  --shadow-card: 0 1px 2px oklch(0.24 0.01 250 / 0.03), 0 10px 24px oklch(0.24 0.01 250 / 0.05);
+  --shadow-card-hover: 0 3px 8px oklch(0.24 0.01 250 / 0.06), 0 20px 36px oklch(0.24 0.01 250 / 0.1);
+  --shadow-soft: 0 8px 30px oklch(0.24 0.01 250 / 0.04);
 }
 
 :root {
   --radius: 0.625rem;
 
   /* surfaces */
-  --background: oklch(0.985 0.005 95);              /* warm off-white app bg */
+  --background: oklch(0.972 0.004 95);              /* warm off-white app bg */
   --surface: oklch(1 0 0);                          /* pure white cards */
-  --surface-muted: oklch(0.965 0.006 95);           /* very subtle gray panel */
+  --surface-muted: oklch(0.954 0.006 95);           /* very subtle gray panel */
   --foreground: oklch(0.18 0.02 250);
 
   --card: oklch(1 0 0);
@@ -91,16 +92,16 @@
   --popover-foreground: oklch(0.18 0.02 250);
 
   /* brand teal-green from the references */
-  --primary: oklch(0.42 0.08 175);
+  --primary: oklch(0.37 0.09 176);
   --primary-foreground: oklch(0.99 0.005 95);
-  --primary-soft: oklch(0.93 0.04 175);
+  --primary-soft: oklch(0.9 0.045 176);
   --primary-soft-foreground: oklch(0.32 0.07 175);
 
   --secondary: oklch(0.96 0.008 250);
   --secondary-foreground: oklch(0.22 0.02 250);
 
-  --muted: oklch(0.965 0.006 250);
-  --muted-foreground: oklch(0.55 0.02 250);
+  --muted: oklch(0.962 0.006 250);
+  --muted-foreground: oklch(0.66 0.018 250);
 
   --accent: oklch(0.96 0.012 250);
   --accent-foreground: oklch(0.22 0.02 250);
@@ -108,9 +109,9 @@
   --destructive: oklch(0.6 0.22 27);
   --destructive-foreground: oklch(0.99 0.005 95);
 
-  --border: oklch(0.92 0.008 250);
-  --border-strong: oklch(0.86 0.01 250);
-  --input: oklch(0.92 0.008 250);
+  --border: oklch(0.91 0.008 250);
+  --border-strong: oklch(0.84 0.012 250);
+  --input: oklch(0.91 0.008 250);
   --ring: oklch(0.55 0.07 175);
 
   /* status */

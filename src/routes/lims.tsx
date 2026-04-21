@@ -14,8 +14,8 @@ function LimsLayout() {
       <div className="flex flex-1">
         <PrimarySidebar />
         <SecondarySidebar />
-        <main className="flex-1 overflow-x-hidden bg-background px-4 py-6 md:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-[1280px]">
+        <main className="flex-1 overflow-x-hidden bg-background px-3 py-4 md:px-4 lg:px-5">
+          <div className="mx-auto w-full max-w-full">
             <Outlet />
           </div>
         </main>

@@ -53,13 +53,13 @@ export function SecondarySidebar() {
     <aside
       className={cn(
         "relative hidden shrink-0 flex-col border-r border-border bg-surface py-3 md:flex",
-        collapsed ? "w-0 overflow-hidden border-r-0" : "w-[232px]",
+        collapsed ? "w-0 overflow-hidden border-r-0" : "w-[196px]",
       )}
     >
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
-        className="absolute -right-3 top-3 z-10 hidden h-6 w-6 items-center justify-center rounded-md bg-foreground text-background shadow md:flex"
+        className="absolute -right-4 top-[-16px] z-10 hidden h-8 w-8 items-center justify-center rounded-xl bg-[oklch(0.16_0_0)] text-white shadow-[0_10px_18px_oklch(0.16_0_0_/_0.24)] md:flex"
         aria-label="Toggle sidebar"
       >
         <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform", collapsed && "rotate-180")} />
@@ -70,14 +70,14 @@ export function SecondarySidebar() {
           <div className="px-3 pb-3">
             <button
               type="button"
-              className="flex w-full items-center justify-between rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground"
+              className="flex h-[46px] w-full items-center justify-between rounded-[12px] border border-border bg-surface px-4 text-[14px] font-medium tracking-[-0.03em] text-[oklch(0.6_0.03_250)] shadow-[inset_0_1px_0_oklch(1_0_0)]"
             >
               Thrissur
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-[oklch(0.56_0.04_250)]" />
             </button>
           </div>
 
-          <nav className="flex flex-col gap-0.5 px-2">
+          <nav className="flex flex-col gap-0.5 px-3">
             {items.map((item) => {
               const Icon = item.icon;
               const isLims = item.label === "LIMS";
@@ -87,17 +87,17 @@ export function SecondarySidebar() {
               const inner = (
                 <div
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] tracking-[-0.025em] transition-colors",
                     isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground/80 hover:bg-muted hover:text-foreground",
+                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                      : "text-[oklch(0.64_0.024_250)] hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <Icon
-                    className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-foreground/60")}
-                    strokeWidth={1.75}
+                    className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-[oklch(0.64_0.024_250)]")}
+                    strokeWidth={1.8}
                   />
-                  <span className={cn("font-medium", isActive && "font-semibold")}>{item.label}</span>
+                  <span className={cn("font-semibold", isActive && "font-semibold")}>{item.label}</span>
                 </div>
               );
               return item.to ? (
