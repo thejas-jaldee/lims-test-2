@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { TopHeader } from "@/components/layout/TopHeader";
 import { PrimarySidebar } from "@/components/layout/PrimarySidebar";
 import { SecondarySidebar } from "@/components/layout/SecondarySidebar";
@@ -8,6 +9,18 @@ export const Route = createFileRoute("/lims")({
 });
 
 function LimsLayout() {
+  const location = useLocation();
+
+  useEffect(() => {
+    document.body.style.overflow = "";
+    document.body.style.pointerEvents = "";
+
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.pointerEvents = "";
+    };
+  }, [location.pathname, location.search]);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <TopHeader />
