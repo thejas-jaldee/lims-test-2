@@ -507,7 +507,7 @@ function SampleCard({
     <section className="rounded-[10px] border border-border bg-surface shadow-[var(--shadow-card)]">
       <div className="flex flex-col gap-2.5 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-4">
-          <div className="flex w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[8px] border border-border bg-surface p-2 sm:w-[96px]">
+          <div className="flex w-max shrink-0 flex-col items-center justify-center gap-1 rounded-[8px] border border-border bg-surface p-2 sm:w-max">
             <div className="barcode h-5 w-[62px] sm:h-6 sm:w-[68px]" aria-hidden="true" />
             <div className="text-[9px] whitespace-nowrap font-medium tracking-wider text-muted-foreground">{sample.id}</div>
           </div>

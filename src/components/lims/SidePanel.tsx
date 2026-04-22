@@ -48,7 +48,7 @@ export function SidePanel({ open, onClose, title, subtitle, children, footer, wi
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-muted px-5 py-3">
+          <div className="flex items-center justify-end gap-2 border-t border-border  px-5 py-3">
             {footer}
           </div>
         )}
