@@ -21,7 +21,6 @@ import { Timeline } from "@/components/lims/Timeline";
 import { SampleCollectionDrawer } from "@/components/lims/SampleCollectionDrawer";
 import { Modal } from "@/components/lims/Modal";
 import {
-  getPatient,
   getTest,
   orderStatusMeta,
   testStatusMeta,
@@ -75,6 +74,7 @@ function OrderDetailsPage() {
   const bulkSet = useLimsStore((s) => s.bulkSetTestStatus);
   const approveAll = useLimsStore((s) => s.approveAll);
   const publishAll = useLimsStore((s) => s.publishAll);
+  const getPatient = useLimsStore((s) => s.getPatient);
 
   const patient = getPatient(order.patientId)!;
   const meta = orderStatusMeta[order.status];

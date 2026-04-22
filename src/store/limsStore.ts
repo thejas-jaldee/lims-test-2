@@ -59,6 +59,7 @@ interface LimsState {
   packages: TestPackage[];
 
   getOrder: (id: string) => Order | undefined;
+  getPatient: (id: string) => Patient | undefined;
   collectSample: (orderId: string, sampleId: string, by: string) => void;
   setTestStatus: (orderId: string, testId: string, status: TestStatus) => void;
   bulkSetTestStatus: (orderId: string, testIds: string[], status: TestStatus) => void;
@@ -122,6 +123,7 @@ export const useLimsStore = create<LimsState>((set, get) => ({
   packages: seedPackages,
 
   getOrder: (id) => get().orders.find((o) => o.id === id || o.number === id),
+  getPatient: (id) => get().patients.find((p) => p.id === id),
 
   collectSample: (orderId, sampleId, by) =>
     set((s) => ({

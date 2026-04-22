@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatusPill } from "@/components/lims/StatusPill";
-import { getPatient, formatDateTime, orderStatusMeta } from "@/data/lims";
+import { formatDateTime, orderStatusMeta } from "@/data/lims";
 import { useLimsStore } from "@/store/limsStore";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/lims/validation/")({
 
 function ValidationQueuePage() {
   const orders = useLimsStore((s) => s.orders);
+  const getPatient = useLimsStore((s) => s.getPatient);
   const approveAll = useLimsStore((s) => s.approveAll);
   const bulkSet = useLimsStore((s) => s.bulkSetTestStatus);
   const queue = orders.filter((o) => o.status === "result_entered" || o.status === "validation");

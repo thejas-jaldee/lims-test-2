@@ -25,8 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   formatINR,
-  getOrder,
-  getPatient,
   getTest,
   orderStatusMeta,
   type InvoiceActivity,
@@ -43,7 +41,7 @@ export const Route = createFileRoute("/lims/orders/$orderId/invoice")({
     ],
   }),
   loader: ({ params }): { orderId: string } => {
-    const order = getOrder(params.orderId);
+    const order = useLimsStore.getState().getOrder(params.orderId);
     if (!order) throw notFound();
     return { orderId: params.orderId };
   },
@@ -66,6 +64,7 @@ function InvoicePage() {
   const settleInvoice = useLimsStore((s) => s.settleInvoice);
   const cancelInvoice = useLimsStore((s) => s.cancelInvoice);
   const logInvoiceActivity = useLimsStore((s) => s.logInvoiceActivity);
+  const getPatient = useLimsStore((s) => s.getPatient);
 
   const patient = getPatient(order.patientId)!;
   const orderMeta = orderStatusMeta[order.status];

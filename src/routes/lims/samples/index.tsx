@@ -3,7 +3,7 @@ import { Search, TestTubes } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatusPill } from "@/components/lims/StatusPill";
-import { getPatient, formatDateTime, type SampleStatus } from "@/data/lims";
+import { formatDateTime, type SampleStatus } from "@/data/lims";
 import { useLimsStore } from "@/store/limsStore";
 
 export const Route = createFileRoute("/lims/samples/")({
@@ -26,6 +26,7 @@ type Filter = "all" | SampleStatus;
 
 function SamplesIndex() {
   const orders = useLimsStore((s) => s.orders);
+  const getPatient = useLimsStore((s) => s.getPatient);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 

@@ -1,15 +1,18 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Search, Plus, Trash2, Minus, ChevronDown } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Search, Plus, Trash2, Minus, ChevronDown, FileText } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import {
-  patients,
-  labTests,
   referringDoctors,
   formatINR,
+  type Order,
+  type OrderSample,
+  type OrderTest,
   type Patient,
 } from "@/data/lims";
 import { cn } from "@/lib/utils";
+import { buildTimeline, useLimsStore } from "@/store/limsStore";
 
 export const Route = createFileRoute("/lims/orders/new")({
   head: () => ({
@@ -25,11 +28,16 @@ interface SelectedTest {
   testId: string;
   qty: number;
   price: number;
-  discount: string;
+  discount: number;
 }
 
 function CreateOrderPage() {
   const navigate = useNavigate();
+  const patients = useLimsStore((s) => s.patients);
+  const tests = useLimsStore((s) => s.tests);
+  const orders = useLimsStore((s) => s.orders);
+  const addOrder = useLimsStore((s) => s.addOrder);
+  const addPatient = useLimsStore((s) => s.addPatient);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [search, setSearch] = useState("");
   const [testSearch, setTestSearch] = useState("");
@@ -38,6 +46,8 @@ function CreateOrderPage() {
   const [priority, setPriority] = useState<"normal" | "urgent">("urgent");
   const [showAllTests, setShowAllTests] = useState(false);
   const [viewMore, setViewMore] = useState(false);
+  const [doctorFee, setDoctorFee] = useState(0);
+  const [discount, setDiscount] = useState(0);
 
   const patientResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -54,22 +64,197 @@ function CreateOrderPage() {
 
   const testResults = useMemo(() => {
     const q = testSearch.trim().toLowerCase();
-    if (showAllTests) return labTests;
+    if (showAllTests) return tests;
     if (!q) return [];
-    return labTests.filter(
+    return tests.filter(
       (t) => t.name.toLowerCase().includes(q) || t.code.toLowerCase().includes(q),
     );
-  }, [testSearch, showAllTests]);
+  }, [testSearch, showAllTests, tests]);
 
+  const itemDiscountTotal = selected.reduce((acc, s) => acc + s.discount, 0);
   const subtotal = selected.reduce((acc, s) => acc + s.qty * s.price, 0);
-  const gst = subtotal * 0.18;
-  const total = subtotal + gst;
+  const taxableSubtotal = Math.max(subtotal + doctorFee - itemDiscountTotal - discount, 0);
+  const gst = taxableSubtotal * 0.18;
+  const total = taxableSubtotal + gst;
+  const totalItems = selected.reduce((acc, s) => acc + s.qty, 0);
 
   const addTest = (id: string) => {
     if (selected.some((s) => s.testId === id)) return;
-    const t = labTests.find((x) => x.id === id);
+    const t = tests.find((x) => x.id === id);
     if (!t) return;
-    setSelected((arr) => [...arr, { testId: id, qty: 1, price: t.price, discount: "Select" }]);
+    setSelected((arr) => [...arr, { testId: id, qty: 1, price: t.price, discount: 0 }]);
+  };
+
+  const createPatientFromSearch = () => {
+    const input = search.trim();
+    if (!input) {
+      toast.error("Enter a patient name or phone number");
+      return;
+    }
+
+    const maxPatientNo = patients.reduce((max, current) => {
+      const match = current.id.match(/PAT-(\d+)/);
+      const value = match ? Number(match[1]) : 0;
+      return Math.max(max, value);
+    }, 0);
+
+    const digits = input.replace(/\D/g, "");
+    const nextPatient: Patient = {
+      id: `PAT-${maxPatientNo + 1}`,
+      name: /\D/.test(input) ? input : `Patient ${maxPatientNo + 1}`,
+      age: 30,
+      gender: "Other",
+      phone: digits ? `+91 ${digits.slice(0, 5)} ${digits.slice(5, 10)}`.trim() : "+91 00000 00000",
+      email: `patient${maxPatientNo + 1}@example.com`,
+      address: "Address to be updated",
+    };
+
+    addPatient(nextPatient);
+    setPatient(nextPatient);
+    setSearch(nextPatient.name);
+    toast.success("Patient created");
+  };
+
+  const getNextOrderNumber = () => {
+    const maxOrderNo = orders.reduce((max, order) => {
+      const match = order.number.match(/ORD-(\d+)/);
+      const value = match ? Number(match[1]) : 0;
+      return Math.max(max, value);
+    }, 0);
+    return maxOrderNo + 1;
+  };
+
+  const buildSamples = (orderTests: OrderTest[]): OrderSample[] => {
+    const grouped = new Map<
+      string,
+      { type: string; testIds: string[]; containers: string[]; instructions: string[] }
+    >();
+
+    orderTests.forEach((orderTest) => {
+      const test = tests.find((item) => item.id === orderTest.testId);
+      if (!test) return;
+
+      const groupKey = `${test.specimen}::${test.container ?? "default"}`;
+      const existing = grouped.get(groupKey);
+      const instructions = [
+        `Collect specimen for ${test.name}.`,
+        test.container ? `Use ${test.container}.` : "Use standard collection protocol.",
+        test.shelfLife ? `Process within ${test.shelfLife}.` : "Process as per lab SOP.",
+      ];
+
+      if (existing) {
+        existing.testIds.push(orderTest.testId);
+        instructions.forEach((instruction) => {
+          if (!existing.instructions.includes(instruction)) {
+            existing.instructions.push(instruction);
+          }
+        });
+        if (test.container && !existing.containers.includes(test.container)) {
+          existing.containers.push(test.container);
+        }
+        return;
+      }
+
+      grouped.set(groupKey, {
+        type: test.specimen,
+        testIds: [orderTest.testId],
+        containers: test.container ? [test.container] : [],
+        instructions,
+      });
+    });
+
+    return Array.from(grouped.values()).map((sample, index) => ({
+      id: `SMPL-${Date.now()}-${index + 1}`,
+      type: sample.type,
+      status: "not_collected",
+      testIds: sample.testIds,
+      container: sample.containers.join(", ") || undefined,
+      volume:
+        sample.type.toLowerCase() === "urine"
+          ? "30 ml"
+          : sample.type.toLowerCase() === "blood"
+            ? "3-5 ml"
+            : undefined,
+      fasting: sample.type.toLowerCase() === "blood" ? "As advised by clinician" : "Not required",
+      instructions: sample.instructions,
+    }));
+  };
+
+  const createOrder = () => {
+    if (!patient) {
+      toast.error("Select a patient to continue");
+      return null;
+    }
+
+    if (selected.length === 0) {
+      toast.error("Add at least one test");
+      return null;
+    }
+
+    const nextOrderNumber = getNextOrderNumber();
+    const createdAt = new Date().toISOString();
+    const orderId = `ORD-${nextOrderNumber}`;
+    const invoiceNo = `INV-2026-${nextOrderNumber}`;
+    const orderTests: OrderTest[] = selected.map((item) => ({
+      testId: item.testId,
+      qty: item.qty,
+      price: item.price,
+      discount: item.discount,
+      status: "pending",
+    }));
+
+    const nextOrder: Order = {
+      id: orderId,
+      number: orderId,
+      patientId: patient.id,
+      status: "order_confirmed",
+      priority,
+      testCount: totalItems,
+      referredBy: doctor,
+      createdAt,
+      source: "Walk-in",
+      invoiceNo,
+      paymentStatus: "Unpaid",
+      tests: orderTests,
+      samples: buildSamples(orderTests),
+      timeline: buildTimeline("order_confirmed"),
+      invoiceActivity: [
+        {
+          id: `INV-ACT-${nextOrderNumber}-1`,
+          type: "created",
+          title: "Invoice generated",
+          description: "Invoice created for newly registered order.",
+          by: "Reception",
+          at: createdAt,
+        },
+      ],
+      totals: {
+        subtotal,
+        doctorFee,
+        discount: itemDiscountTotal + discount,
+        gstPct: 18,
+        gst,
+        total,
+        paid: 0,
+      },
+    };
+
+    addOrder(nextOrder);
+    return nextOrder;
+  };
+
+  const handleCreateOrder = (destination: "details" | "invoice") => {
+    const order = createOrder();
+    if (!order) return;
+
+    toast.success(destination === "invoice" ? "Invoice generated" : "Order created");
+    navigate({
+      to:
+        destination === "invoice"
+          ? "/lims/orders/$orderId/invoice"
+          : "/lims/orders/$orderId",
+      params: { orderId: order.id },
+    });
   };
 
   if (!patient) {
@@ -88,7 +273,11 @@ function CreateOrderPage() {
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
             </div>
-            <button className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+            <button
+              type="button"
+              onClick={createPatientFromSearch}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            >
               <Plus className="h-4 w-4" /> Create Patient
             </button>
           </div>
@@ -211,7 +400,7 @@ function CreateOrderPage() {
                         </tr>
                       )}
                       {selected.map((s, i) => {
-                        const t = labTests.find((x) => x.id === s.testId)!;
+                        const t = tests.find((x) => x.id === s.testId)!;
                         return (
                           <tr key={s.testId}>
                             <td className="px-3 py-3">{i + 1}</td>
@@ -277,10 +466,21 @@ function CreateOrderPage() {
                               />
                             </td>
                             <td className="px-3 py-3">
-                              <button className="inline-flex w-28 items-center justify-between rounded-md border border-border px-2 py-1 text-sm">
-                                {s.discount}
-                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                              </button>
+                              <input
+                                type="number"
+                                min={0}
+                                value={s.discount}
+                                onChange={(e) =>
+                                  setSelected((arr) =>
+                                    arr.map((x) =>
+                                      x.testId === s.testId
+                                        ? { ...x, discount: Math.max(0, Number(e.target.value) || 0) }
+                                        : x,
+                                    ),
+                                  )
+                                }
+                                className="w-24 rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none"
+                              />
                             </td>
                             <td className="px-3 py-3">
                               <button
@@ -401,7 +601,10 @@ function CreateOrderPage() {
                 label="Doctor Fee"
                 value={
                   <input
-                    defaultValue={0}
+                    type="number"
+                    min={0}
+                    value={doctorFee}
+                    onChange={(e) => setDoctorFee(Math.max(0, Number(e.target.value) || 0))}
                     className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-right text-sm outline-none"
                   />
                 }
@@ -410,12 +613,16 @@ function CreateOrderPage() {
                 label="Discount"
                 value={
                   <input
-                    defaultValue={0}
+                    type="number"
+                    min={0}
+                    value={discount}
+                    onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
                     className="w-20 rounded-md border border-border bg-surface px-2 py-1 text-right text-sm outline-none"
                   />
                 }
               />
               <Row label="Subtotal" value={formatINR(subtotal)} />
+              <Row label="Item Discount" value={formatINR(itemDiscountTotal)} />
               <Row label="GST (18%)" value={formatINR(gst)} />
             </dl>
             <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
@@ -423,23 +630,24 @@ function CreateOrderPage() {
               <span className="text-base font-bold">{formatINR(total)}</span>
             </div>
 
-            <button className="mt-4 w-full rounded-md border border-primary py-2.5 text-sm font-semibold text-primary hover:bg-primary-soft">
+            <button
+              type="button"
+              onClick={() => handleCreateOrder("invoice")}
+              disabled={!patient || selected.length === 0}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-primary py-2.5 text-sm font-semibold text-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FileText className="h-4 w-4" />
               Generate Invoice
             </button>
             <button
-              onClick={() => navigate({ to: "/lims/orders/$orderId", params: { orderId: "ORD-1041" } })}
-              className="mt-2 w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              type="button"
+              onClick={() => handleCreateOrder("details")}
+              disabled={!patient || selected.length === 0}
+              className="mt-2 w-full rounded-md bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirm Order
             </button>
           </section>
-
-          <Link
-            to="/lims/orders"
-            className="text-center text-xs text-muted-foreground hover:text-foreground"
-          >
-            ← Back to orders
-          </Link>
         </aside>
       </div>
     </div>

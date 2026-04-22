@@ -3,7 +3,7 @@ import { Search, FileText, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatusPill } from "@/components/lims/StatusPill";
-import { getPatient, getTest, formatDateTime } from "@/data/lims";
+import { getTest, formatDateTime } from "@/data/lims";
 import { useLimsStore } from "@/store/limsStore";
 
 export const Route = createFileRoute("/lims/reports/")({
@@ -18,6 +18,7 @@ export const Route = createFileRoute("/lims/reports/")({
 
 function ReportsIndex() {
   const orders = useLimsStore((s) => s.orders);
+  const getPatient = useLimsStore((s) => s.getPatient);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "result_approved" | "result_published">("all");
 

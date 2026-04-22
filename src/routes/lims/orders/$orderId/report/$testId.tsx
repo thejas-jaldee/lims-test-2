@@ -2,7 +2,8 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { Printer, Share2, Download, Edit3 } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Barcode } from "@/components/lims/Barcode";
-import { getOrder, getPatient, getTest, formatDate, type Order } from "@/data/lims";
+import { getTest, formatDate, type Order } from "@/data/lims";
+import { useLimsStore } from "@/store/limsStore";
 
 export const Route = createFileRoute("/lims/orders/$orderId/report/$testId")({
   head: ({ params }) => ({
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/lims/orders/$orderId/report/$testId")({
     ],
   }),
   loader: ({ params }): { order: Order; testId: string } => {
-    const order = getOrder(params.orderId);
+    const order = useLimsStore.getState().getOrder(params.orderId);
     if (!order) throw notFound();
     return { order, testId: params.testId };
   },
@@ -21,6 +22,7 @@ export const Route = createFileRoute("/lims/orders/$orderId/report/$testId")({
 
 function ReportView() {
   const { order, testId } = Route.useLoaderData() as { order: Order; testId: string };
+  const getPatient = useLimsStore((s) => s.getPatient);
   const test = getTest(testId);
   const patient = getPatient(order.patientId)!;
   if (!test) return <div className="p-8 text-center">Test not found.</div>;

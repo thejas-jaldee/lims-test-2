@@ -20,7 +20,6 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { StatusPill } from "@/components/lims/StatusPill";
 import { PatientAvatar } from "@/components/lims/PatientCard";
 import {
-  getPatient,
   getTest,
   formatDateTime,
   technicians,
@@ -62,6 +61,7 @@ function ResultEntryPage() {
   const navigate = useNavigate();
   const order = useLimsStore((s) => s.orders.find((o) => o.id === orderId || o.number === orderId)) as Order;
   const setTestStatus = useLimsStore((s) => s.setTestStatus);
+  const getPatient = useLimsStore((s) => s.getPatient);
   const test = getTest(testId);
   const handleSubmit = () => {
     setTestStatus(order.id, testId, "result_entered");

@@ -3,7 +3,7 @@ import { Search, Filter, Plus, MoreHorizontal, ChevronLeft, ChevronRight, ArrowD
 import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { StatusPill, PriorityDot } from "@/components/lims/StatusPill";
-import { orderStatusMeta, getPatient, formatDateTime, type OrderStatus } from "@/data/lims";
+import { orderStatusMeta, formatDateTime, type OrderStatus } from "@/data/lims";
 import { useLimsStore } from "@/store/limsStore";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ const STATUS_OPTIONS: Array<{ key: OrderStatus | "all"; label: string }> = [
 
 function OrdersListPage() {
   const orders = useLimsStore((s) => s.orders);
+  const getPatient = useLimsStore((s) => s.getPatient);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | "normal" | "urgent">("all");
