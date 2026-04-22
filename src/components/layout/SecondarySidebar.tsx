@@ -52,14 +52,14 @@ export function SecondarySidebar() {
   return (
     <aside
       className={cn(
-        "relative hidden shrink-0 flex-col border-r border-border bg-surface py-3 md:flex",
-        collapsed ? "w-0 overflow-hidden border-r-0" : "w-[196px]",
+        "relative hidden shrink-0 flex-col border-r border-[oklch(0.9_0.008_250)] bg-surface py-4 md:flex",
+        collapsed ? "w-0 overflow-hidden border-r-0" : "w-[208px]",
       )}
     >
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
-        className="absolute -right-4 top-[-16px] z-10 hidden h-8 w-8 items-center justify-center rounded-xl bg-[oklch(0.16_0_0)] text-white shadow-[0_10px_18px_oklch(0.16_0_0_/_0.24)] md:flex"
+        className="absolute -right-[11px] top-[-15px] z-10 hidden h-7 w-7 items-center justify-center rounded-[8px] bg-[oklch(0.16_0_0)] text-white shadow-[0_10px_18px_oklch(0.16_0_0_/_0.24)] md:flex"
         aria-label="Toggle sidebar"
       >
         <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform", collapsed && "rotate-180")} />
@@ -67,17 +67,17 @@ export function SecondarySidebar() {
 
       {!collapsed && (
         <>
-          <div className="px-3 pb-3">
+          <div className="px-3 pb-4">
             <button
               type="button"
-              className="flex h-[46px] w-full items-center justify-between rounded-[12px] border border-border bg-surface px-4 text-[14px] font-medium tracking-[-0.03em] text-[oklch(0.6_0.03_250)] shadow-[inset_0_1px_0_oklch(1_0_0)]"
+              className="flex h-[46px] w-full items-center justify-between rounded-[12px] border border-[oklch(0.87_0.01_250)] bg-surface px-4 text-[14px] font-medium tracking-[-0.03em] text-[oklch(0.58_0.03_250)] shadow-[inset_0_1px_0_oklch(1_0_0)]"
             >
               Thrissur
               <ChevronDown className="h-4 w-4 text-[oklch(0.56_0.04_250)]" />
             </button>
           </div>
 
-          <nav className="flex flex-col gap-0.5 px-3">
+          <nav className="flex flex-col gap-1 px-3">
             {items.map((item) => {
               const Icon = item.icon;
               const isLims = item.label === "LIMS";
@@ -87,9 +87,9 @@ export function SecondarySidebar() {
               const inner = (
                 <div
                   className={cn(
-                    "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] tracking-[-0.025em] transition-colors",
+                    "flex items-center gap-2.5 rounded-[10px] px-3 py-[11px] text-[13px] tracking-[-0.025em] transition-colors",
                     isActive
-                      ? "bg-primary text-primary-foreground shadow-[var(--shadow-card)]"
+                      ? "bg-primary text-primary-foreground shadow-none"
                       : "text-[oklch(0.64_0.024_250)] hover:bg-muted hover:text-foreground",
                   )}
                 >

@@ -31,7 +31,7 @@ function LimsLayout() {
         <SecondarySidebar />
         <main
           className={cn(
-            "flex-1 overflow-x-hidden px-3 py-4 md:px-4 lg:px-5",
+            "flex-1 overflow-x-hidden px-3 py-0 md:px-4 lg:px-5",
             isDashboard ? "bg-background" : "bg-surface-muted",
           )}
         >

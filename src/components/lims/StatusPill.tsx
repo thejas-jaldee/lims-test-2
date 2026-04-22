@@ -22,7 +22,7 @@ export function StatusPill({ tone, label, dot = true, className }: StatusPillPro
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold leading-none whitespace-nowrap",
         toneClass[tone],
         className,
       )}
@@ -42,14 +42,14 @@ export function PriorityDot({ priority }: PriorityDotProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs font-medium",
-        isUrgent ? "text-danger" : "text-muted-foreground",
+        "inline-flex items-center gap-1.5 text-[12px] font-medium leading-none",
+        isUrgent ? "text-danger" : "text-info",
       )}
     >
       <span
         className={cn(
           "h-2 w-2 rounded-full",
-          isUrgent ? "bg-danger" : "border border-border-strong bg-transparent",
+          isUrgent ? "bg-danger" : "border border-info bg-transparent",
         )}
       />
       {isUrgent ? "Urgent" : "Normal"}

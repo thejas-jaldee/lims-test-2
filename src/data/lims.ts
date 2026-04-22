@@ -906,7 +906,7 @@ export const orderStatusMeta: Record<
 > = {
   order_confirmed: { label: "Order Confirmed", tone: "info" },
   sample_collected: { label: "Sample Collected", tone: "warning" },
-  result_entered: { label: "Result Entered", tone: "danger" },
+  result_entered: { label: "Result Entered", tone: "info" },
   validation: { label: "Validation", tone: "violet" },
   published: { label: "Published", tone: "success" },
 };
