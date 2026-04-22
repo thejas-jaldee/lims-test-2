@@ -337,7 +337,7 @@ function InvoicePage() {
                     </div>
                   </div>
 
-                  <div className="inline-flex h-[34px] items-center gap-2 rounded-[10px] bg-violet-soft px-3 text-[12px] font-bold text-[#5757ff] sm:h-[38px] sm:px-4 sm:text-[13px]">
+                  <div className="inline-flex h-[34px] items-center gap-2 mb-2 rounded-[10px] bg-violet-soft px-3 text-[12px] font-bold text-[#5757ff] sm:h-[38px] sm:px-4 sm:text-[13px]">
                     <ClipboardList className="h-3 w-3" />
                     INVOICE
                   </div>
