@@ -25,12 +25,12 @@ export function SampleCollectionDrawer({ open, onClose, sample, onConfirm }: Pro
       width="md"
       footer={
         <>
-          <button onClick={onClose} className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-muted">
+          <button onClick={onClose} className="rounded-md border w-full border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-muted">
             Cancel
           </button>
           <button
             onClick={() => (onConfirm ? onConfirm(tech) : onClose())}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            className="inline-flex items-center gap-2 rounded-md bg-primary w-full justify-center px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
             ✓ Collected
           </button>
