@@ -59,7 +59,7 @@ export function SecondarySidebar() {
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
-        className="absolute -right-[11px] top-[-15px] z-10 hidden h-7 w-7 items-center justify-center rounded-[8px] bg-[oklch(0.16_0_0)] text-white shadow-[0_10px_18px_oklch(0.16_0_0_/_0.24)] md:flex"
+        className="absolute -right-[11px] top-[-15px] z-100 hidden h-7 w-7 items-center justify-center rounded-[8px] bg-[oklch(0.16_0_0)] text-white shadow-[0_10px_18px_oklch(0.16_0_0_/_0.24)] md:flex"
         aria-label="Toggle sidebar"
       >
         <ChevronLeft className={cn("h-3.5 w-3.5 transition-transform", collapsed && "rotate-180")} />

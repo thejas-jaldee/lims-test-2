@@ -7,15 +7,17 @@ interface BarcodeProps {
 }
 
 /**
- * Decorative SVG-style barcode for invoice / order headers.
- * Not a real barcode — the design uses it as a visual element only.
+ * Decorative barcode used in order and invoice headers.
+ * It is visual only and not intended for scanning.
  */
 export function Barcode({ value, className, showValue = true }: BarcodeProps) {
   return (
-    <div className={cn("flex flex-col items-end gap-1", className)}>
-      <div className="barcode h-12 w-44 rounded-sm" aria-hidden="true" />
+    <div className={cn("flex flex-col items-center gap-1.5", className)}>
+      <div className="barcode h-9 w-[136px] sm:h-10 sm:w-[150px]" aria-hidden="true" />
       {showValue && value && (
-        <div className="text-[11px] font-medium tracking-wider text-muted-foreground">{value}</div>
+        <div className="text-[10px] font-medium tracking-[0.06em] text-muted-foreground sm:text-[11px]">
+          {value}
+        </div>
       )}
     </div>
   );

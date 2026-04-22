@@ -83,7 +83,7 @@
   /* surfaces */
   --background: oklch(0.972 0.004 95);              /* warm off-white app bg */
   --surface: oklch(1 0 0);                          /* pure white cards */
-  --surface-muted: oklch(0.954 0.006 95);           /* very subtle gray panel */
+  --surface-muted: #F5F5F6;           /* very subtle gray panel */
   --foreground: oklch(0.18 0.02 250);
 
   --card: oklch(1 0 0);

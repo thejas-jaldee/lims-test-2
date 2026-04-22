@@ -61,6 +61,7 @@ interface LimsState {
   getOrder: (id: string) => Order | undefined;
   getPatient: (id: string) => Patient | undefined;
   collectSample: (orderId: string, sampleId: string, by: string) => void;
+  assignTest: (orderId: string, testId: string, technician: string) => void;
   setTestStatus: (orderId: string, testId: string, status: TestStatus) => void;
   bulkSetTestStatus: (orderId: string, testIds: string[], status: TestStatus) => void;
   approveTest: (orderId: string, testId: string) => void;
@@ -138,6 +139,16 @@ export const useLimsStore = create<LimsState>((set, get) => ({
           o.samples.find((sm) => sm.id === sampleId)?.testIds.includes(t.testId) && t.status === "pending"
             ? { ...t, status: "in_progress" }
             : t,
+        ),
+      })),
+    })),
+
+  assignTest: (orderId, testId, technician) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => ({
+        ...o,
+        tests: o.tests.map((t): OrderTest =>
+          t.testId === testId ? { ...t, assignedTo: technician } : t,
         ),
       })),
     })),

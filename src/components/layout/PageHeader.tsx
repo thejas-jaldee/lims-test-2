@@ -11,7 +11,7 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, backTo, right, subtitle }: PageHeaderProps) {
   return (
-    <header className="-mx-3 -mt-4 mb-5 border-b border-[oklch(0.9_0.008_250)] bg-surface px-4 py-4 md:-mx-4 md:px-6 lg:-mx-5 lg:mb-6 lg:px-7">
+    <header className="mx-3  mb-5 border-b border-[oklch(0.9_0.008_250)] bg-surface px-4 py-4 md:-mx-4 md:px-6 lg:-mx-5 lg:mb-6 lg:px-7">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5">
           {backTo && (

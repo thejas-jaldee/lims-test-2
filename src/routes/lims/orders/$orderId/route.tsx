@@ -11,7 +11,7 @@ import {
   ClipboardList,
   Send,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Barcode } from "@/components/lims/Barcode";
@@ -32,12 +32,13 @@ import {
 } from "@/data/lims";
 import { useLimsStore } from "@/store/limsStore";
 import { cn } from "@/lib/utils";
+import { getCdnAssetUrl } from "@/lib/cdn";
 
 export const Route = createFileRoute("/lims/orders/$orderId")({
   head: ({ params }) => ({
     meta: [
-      { title: `Order ${params.orderId} — LIMS` },
-      { name: "description", content: `Lab order ${params.orderId} — samples, tests and timeline.` },
+      { title: `Order ${params.orderId} - LIMS` },
+      { name: "description", content: `Lab order ${params.orderId} - samples, tests and timeline.` },
     ],
   }),
   loader: ({ params }): { orderId: string } => {
@@ -60,10 +61,12 @@ type BulkAction = "collect" | "enter" | "approve" | "publish";
 
 const bulkActions: Array<{ key: BulkAction; label: string; icon: typeof Beaker }> = [
   { key: "collect", label: "Collect Samples", icon: Beaker },
-  { key: "enter", label: "Enter All Tests Results", icon: ClipboardList },
-  { key: "approve", label: "Approve Tests Results", icon: CheckCheck },
-  { key: "publish", label: "Publish All Tests Report", icon: Send },
+  { key: "enter", label: "Enter All Test Results", icon: ClipboardList },
+  { key: "approve", label: "Approve Test Results", icon: CheckCheck },
+  { key: "publish", label: "Publish All Test Reports", icon: Send },
 ];
+
+const technicians = ["Tech. Sreeja R.", "Tech. Anand", "Tech. Meera", "Tech. Suresh"];
 
 function OrderDetailsPage() {
   const { orderId } = Route.useLoaderData();
@@ -71,17 +74,15 @@ function OrderDetailsPage() {
   const location = useLocation();
   const order = useLimsStore((s) => s.orders.find((o) => o.id === orderId || o.number === orderId)) as Order;
   const collectSample = useLimsStore((s) => s.collectSample);
+  const assignTest = useLimsStore((s) => s.assignTest);
   const bulkSet = useLimsStore((s) => s.bulkSetTestStatus);
-  const approveAll = useLimsStore((s) => s.approveAll);
-  const publishAll = useLimsStore((s) => s.publishAll);
   const getPatient = useLimsStore((s) => s.getPatient);
 
   const patient = getPatient(order.patientId)!;
   const meta = orderStatusMeta[order.status];
   const canonicalBasePath = `/lims/orders/${order.id}`;
   const legacyBasePath = `/lims/orders/${order.number}`;
-  const isNestedChildRoute =
-    location.pathname !== canonicalBasePath && location.pathname !== legacyBasePath;
+  const isNestedChildRoute = location.pathname !== canonicalBasePath && location.pathname !== legacyBasePath;
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
@@ -89,19 +90,27 @@ function OrderDetailsPage() {
   const [sampleDetails, setSampleDetails] = useState<OrderSample | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<string | null>(null);
+  const [selectedTechnician, setSelectedTechnician] = useState("Tech. Sreeja R.");
+  const [showHeaderIllustration, setShowHeaderIllustration] = useState(true);
+
+  const samplePanelImage = getCdnAssetUrl("assets/images/lims/labflaskicon.png");
 
   const eligibleTestIds = useMemo(() => {
     if (!bulkAction) return [];
-    if (bulkAction === "enter")
+    if (bulkAction === "enter") {
       return order.tests.filter((t) => t.status === "in_progress" || t.status === "pending").map((t) => t.testId);
-    if (bulkAction === "approve")
+    }
+    if (bulkAction === "approve") {
       return order.tests.filter((t) => t.status === "result_entered").map((t) => t.testId);
-    if (bulkAction === "publish")
+    }
+    if (bulkAction === "publish") {
       return order.tests.filter((t) => t.status === "result_approved").map((t) => t.testId);
-    if (bulkAction === "collect")
+    }
+    if (bulkAction === "collect") {
       return order.tests
         .filter((t) => order.samples.some((s) => s.testIds.includes(t.testId) && s.status !== "collected"))
         .map((t) => t.testId);
+    }
     return [];
   }, [bulkAction, order]);
 
@@ -123,12 +132,10 @@ function OrderDetailsPage() {
       samples.forEach((s) => collectSample(order.id, s.id, "Tech. Sreeja R."));
       toast.success(`Collected ${samples.length} sample(s)`);
     } else if (bulkAction === "enter") {
-      // open multi-entry view by navigating to first test
       navigate({
         to: "/lims/orders/$orderId/result/$testId",
         params: { orderId: order.id, testId: selectedTestIds[0] },
       });
-      // mark all as result_entered after demo entry — for bulk we shortcut:
       const targetStatus: TestStatus = "result_entered";
       bulkSet(order.id, selectedTestIds, targetStatus);
       toast.success(`${selectedTestIds.length} result(s) marked entered`);
@@ -148,37 +155,40 @@ function OrderDetailsPage() {
   }
 
   return (
-    <div>
+    <div className="flex flex-col">
       <PageHeader title="Order Details" backTo="/lims/orders" />
 
-      <section className="rounded-2xl border border-border bg-surface p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <section className="rounded-[10px] border border-border bg-surface px-2.5 py-2.5 sm:rounded-[12px] sm:px-3 sm:py-3 lg:rounded-[14px] lg:px-4 lg:py-3">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-xl font-semibold">Order {order.number}</h2>
+              <h2 className="text-[16px] font-semibold tracking-[-0.04em] text-foreground sm:text-[17px] lg:text-[18px]">
+                Order {order.number}
+              </h2>
               <StatusPill tone={meta.tone} label={meta.label} />
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground sm:text-[11px]">
               <span>{formatDateTime(order.createdAt)}</span>
               <span className="flex items-center gap-1">
                 <span className="h-1 w-1 rounded-full bg-muted-foreground" />
-                Visit Type: <span className="font-medium text-foreground">{order.source}</span>
+                {order.source}
               </span>
               <span className="flex items-center gap-1">
                 <span className="h-1 w-1 rounded-full bg-muted-foreground" />
-                Patient ID: <span className="font-medium text-info">{patient.id}</span>
+                {patient.id}
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <Barcode value={`${order.number}-${patient.id.replace("PAT-", "")}`} />
-            <button className="inline-flex h-10 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted">
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+            <Barcode value={`${order.number}-${patient.id.replace("PAT-", "")}`} className="sm:mr-2 lg:mr-4" />
+            <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[8px] border border-border px-3 text-[11px] font-semibold text-primary hover:bg-muted sm:h-9 sm:text-[12px] lg:h-10 sm:min-w-[120px]">
               <Edit3 className="h-4 w-4" /> Edit Order
             </button>
             <Link
               to="/lims/orders/$orderId/invoice"
               params={{ orderId: order.id }}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-4 text-sm font-semibold text-background hover:opacity-90"
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[11px] font-semibold text-background hover:opacity-90 sm:h-9 sm:text-[12px] lg:h-10 sm:min-w-[126px]"
             >
               <FileText className="h-4 w-4" /> View Invoice
             </Link>
@@ -186,16 +196,28 @@ function OrderDetailsPage() {
         </div>
       </section>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
-        <section className="rounded-2xl border border-border bg-surface p-5">
-          <div className="flex items-center justify-between">
+      <div className="mt-2.5 grid grid-cols-1 gap-2.5 sm:mt-3 sm:gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="rounded-[10px]  border-border  p-0 sm:rounded-[12px] lg:rounded-[14px]">
+          <div className="flex flex-col gap-2.5 rounded-[10px] bg-surface border-b border-border px-2.5 py-2.5 sm:px-3 sm:py-3 lg:flex-row lg:items-center lg:justify-between lg:px-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                <Beaker className="h-5 w-5" />
+              <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-[8px]  p-1 text-primary sm:h-8 sm:w-8 lg:h-9 lg:w-9">
+                {showHeaderIllustration ? (
+                  <img
+                    src={samplePanelImage}
+                    alt=""
+                    aria-hidden="true"
+                    className="h-full w-full object-contain"
+                    onError={() => setShowHeaderIllustration(false)}
+                  />
+                ) : (
+                  <Beaker className="h-4 w-4 lg:h-5 lg:w-5" />
+                )}
               </div>
               <div>
-                <div className="text-base font-semibold text-foreground">Samples &amp; Tests</div>
-                <div className="text-xs">
+                <div className="text-[13px] font-semibold text-primary sm:text-[14px] lg:text-[15px]">
+                  Samples &amp; Tests
+                </div>
+                <div className="text-[11px] sm:text-[12px]">
                   <span className="text-muted-foreground">Priority: </span>
                   <span
                     className={cn(
@@ -205,7 +227,7 @@ function OrderDetailsPage() {
                   >
                     <span
                       className={cn(
-                        "h-1.5 w-1.5 rounded-full",
+                        "h-2 w-2 rounded-full",
                         order.priority === "urgent" ? "bg-danger" : "bg-muted-foreground",
                       )}
                     />
@@ -214,17 +236,18 @@ function OrderDetailsPage() {
                 </div>
               </div>
             </div>
+
             <div className="relative">
               <button
                 onClick={() => setBulkOpen((v) => !v)}
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-foreground px-3 text-sm font-semibold text-background"
+                className="inline-flex h-8 items-center gap-1.5 rounded-[8px] bg-foreground px-3 text-[11px] font-semibold text-background sm:h-9 sm:px-3.5 sm:text-[12px] lg:h-10"
               >
                 Complete All <ChevronDown className="h-4 w-4" />
               </button>
               {bulkOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setBulkOpen(false)} />
-                  <div className="absolute right-0 top-12 z-20 w-60 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+                  <div className="absolute right-0 top-12 z-20 w-60 overflow-hidden rounded-[12px] border border-border bg-surface shadow-lg">
                     {bulkActions.map((a) => (
                       <button
                         key={a.key}
@@ -240,7 +263,7 @@ function OrderDetailsPage() {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-2.5  py-2.5 sm:gap-3  sm:py-3 lg:py-4">
             {order.samples.map((s) => (
               <SampleCard
                 key={s.id}
@@ -248,7 +271,11 @@ function OrderDetailsPage() {
                 order={order}
                 onCollect={() => setDrawerSample(s)}
                 onViewDetails={() => setSampleDetails(s)}
-                onAssignTest={(tid) => setAssignFor(tid)}
+                onAssignTest={(tid) => {
+                  setAssignFor(tid);
+                  const assignedTech = order.tests.find((t) => t.testId === tid)?.assignedTo;
+                  setSelectedTechnician(assignedTech ?? "Tech. Sreeja R.");
+                }}
               />
             ))}
             {order.samples.length === 0 && (
@@ -259,28 +286,31 @@ function OrderDetailsPage() {
           </div>
         </section>
 
-        <aside className="flex flex-col gap-4">
-          <section className="rounded-2xl border border-border bg-surface p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-semibold">Patient</div>
+        <aside className="flex flex-col gap-3 sm:gap-4">
+          <section className="rounded-[10px] border border-border bg-surface p-0 sm:rounded-[12px] lg:rounded-[14px]">
+            <div className="flex items-center justify-between border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
+              <div className="text-[13px] font-semibold">Patient</div>
               <button
                 onClick={() => setProfileOpen(true)}
-                className="rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-muted"
+                className="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium hover:bg-muted"
               >
                 View Profile
               </button>
             </div>
-            <PatientCard patient={patient} />
+            <div className="px-3 py-3 sm:px-4 sm:py-4">
+              <PatientCard patient={patient} />
+            </div>
           </section>
 
-          <section className="rounded-2xl border border-border bg-surface p-5">
-            <div className="mb-4 text-sm font-semibold">Order Timeline</div>
-            <Timeline events={order.timeline} />
+          <section className="rounded-[10px] border border-border bg-surface p-0 sm:rounded-[12px] lg:rounded-[14px]">
+            <div className="border-b border-border px-3 py-2.5 text-[13px] font-semibold sm:px-4 sm:py-3">Order Timeline</div>
+            <div className="px-3 py-3 sm:px-4 sm:py-4">
+              <Timeline events={order.timeline} />
+            </div>
           </section>
         </aside>
       </div>
 
-      {/* Bulk action modal */}
       <Modal
         open={!!bulkAction}
         onClose={() => setBulkAction(null)}
@@ -306,9 +336,7 @@ function OrderDetailsPage() {
       >
         <div className="p-5">
           {eligibleTestIds.length === 0 ? (
-            <div className="py-6 text-center text-sm text-muted-foreground">
-              No tests eligible for this action.
-            </div>
+            <div className="py-6 text-center text-sm text-muted-foreground">No tests eligible for this action.</div>
           ) : (
             <>
               <label className="flex items-center gap-2 border-b border-border pb-3">
@@ -318,9 +346,7 @@ function OrderDetailsPage() {
                   checked={selectedTestIds.length === eligibleTestIds.length}
                   onChange={(e) => setSelectedTestIds(e.target.checked ? eligibleTestIds : [])}
                 />
-                <span className="text-sm font-semibold">
-                  Select All ({eligibleTestIds.length} eligible)
-                </span>
+                <span className="text-sm font-semibold">Select All ({eligibleTestIds.length} eligible)</span>
               </label>
               <ul className="mt-2 divide-y divide-border">
                 {eligibleTestIds.map((tid) => {
@@ -334,9 +360,7 @@ function OrderDetailsPage() {
                         className="h-4 w-4 accent-primary"
                         checked={checked}
                         onChange={(e) =>
-                          setSelectedTestIds((s) =>
-                            e.target.checked ? [...s, tid] : s.filter((x) => x !== tid),
-                          )
+                          setSelectedTestIds((s) => (e.target.checked ? [...s, tid] : s.filter((x) => x !== tid)))
                         }
                       />
                       <div className="flex-1">
@@ -354,27 +378,21 @@ function OrderDetailsPage() {
         </div>
       </Modal>
 
-      {/* Sample details modal */}
-      <Modal
-        open={!!sampleDetails}
-        onClose={() => setSampleDetails(null)}
-        title="Sample Details"
-        width="md"
-      >
+      <Modal open={!!sampleDetails} onClose={() => setSampleDetails(null)} title="Sample Details" width="md">
         {sampleDetails && (
           <div className="space-y-3 p-5 text-sm">
             <Row label="Sample ID" value={sampleDetails.id} />
             <Row label="Type" value={sampleDetails.type} />
             <Row label="Status" value={sampleDetails.status.replace("_", " ")} />
-            <Row label="Container" value={sampleDetails.container ?? "—"} />
-            <Row label="Volume" value={sampleDetails.volume ?? "—"} />
-            <Row label="Fasting" value={sampleDetails.fasting ?? "—"} />
+            <Row label="Container" value={sampleDetails.container ?? "-"} />
+            <Row label="Volume" value={sampleDetails.volume ?? "-"} />
+            <Row label="Fasting" value={sampleDetails.fasting ?? "-"} />
             {sampleDetails.collectedBy && (
               <>
                 <Row label="Collected By" value={sampleDetails.collectedBy} />
                 <Row
                   label="Collected At"
-                  value={sampleDetails.collectedAt ? formatDateTime(sampleDetails.collectedAt) : "—"}
+                  value={sampleDetails.collectedAt ? formatDateTime(sampleDetails.collectedAt) : "-"}
                 />
               </>
             )}
@@ -394,7 +412,6 @@ function OrderDetailsPage() {
         )}
       </Modal>
 
-      {/* Patient profile modal */}
       <Modal open={profileOpen} onClose={() => setProfileOpen(false)} title="Patient Profile" width="md">
         <div className="space-y-3 p-5 text-sm">
           <Row label="Name" value={patient.name} />
@@ -406,7 +423,6 @@ function OrderDetailsPage() {
         </div>
       </Modal>
 
-      {/* Assign technician modal */}
       <Modal
         open={!!assignFor}
         onClose={() => setAssignFor(null)}
@@ -415,7 +431,10 @@ function OrderDetailsPage() {
         footer={
           <button
             onClick={() => {
-              toast.success("Technician assigned");
+              if (assignFor) {
+                assignTest(order.id, assignFor, selectedTechnician);
+                toast.success("Technician assigned");
+              }
               setAssignFor(null);
             }}
             className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
@@ -425,9 +444,15 @@ function OrderDetailsPage() {
         }
       >
         <div className="space-y-2 p-5">
-          {["Tech. Sreeja R.", "Tech. Anand", "Tech. Meera", "Tech. Suresh"].map((t) => (
+          {technicians.map((t) => (
             <label key={t} className="flex items-center gap-2 rounded-md border border-border p-2">
-              <input type="radio" name="tech" defaultChecked={t === "Tech. Sreeja R."} className="accent-primary" />
+              <input
+                type="radio"
+                name="tech"
+                checked={selectedTechnician === t}
+                onChange={() => setSelectedTechnician(t)}
+                className="accent-primary"
+              />
               <span className="text-sm">{t}</span>
             </label>
           ))}
@@ -479,58 +504,56 @@ function SampleCard({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="rounded-xl border border-border bg-surface">
-      <div className="flex flex-col gap-3 p-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex items-start gap-3">
-          <div className="flex w-24 flex-col items-center justify-center gap-1 rounded-md border border-border bg-muted/40 p-2">
-            <div className="barcode h-6 w-20" aria-hidden="true" />
-            <div className="text-[9px] font-medium tracking-wider text-muted-foreground">
-              {sample.id}
-            </div>
+    <section className="rounded-[10px] border border-border bg-surface shadow-[var(--shadow-card)]">
+      <div className="flex flex-col gap-2.5 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-4">
+          <div className="flex w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[8px] border border-border bg-surface p-2 sm:w-[96px]">
+            <div className="barcode h-5 w-[62px] sm:h-6 sm:w-[68px]" aria-hidden="true" />
+            <div className="text-[9px] whitespace-nowrap font-medium tracking-wider text-muted-foreground">{sample.id}</div>
           </div>
-          <div>
-            <div className="flex items-baseline gap-2">
-              <h3 className="text-base font-semibold">{sample.type}</h3>
-              <span className="text-xs text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-baseline gap-2.5">
+              <h3 className="text-[14px] font-semibold tracking-[-0.03em] text-foreground sm:text-[15px]">{sample.type}</h3>
+              <span className="text-[11px] text-muted-foreground">
                 ({sample.testIds.length} test{sample.testIds.length === 1 ? "" : "s"} in this Sample)
               </span>
             </div>
             {isCollected ? (
-              <div className="mt-1 flex flex-wrap gap-x-4 text-xs text-muted-foreground">
+              <div className="mt-1.5 inline-flex flex-wrap items-center gap-x-2 rounded-[6px] bg-muted px-2.5 py-1.5 text-[10px] text-muted-foreground sm:text-[11px]">
                 <span>
-                  Collected by:{" "}
-                  <span className="font-medium text-foreground">{sample.collectedBy}</span>
+                  Collected by: <span className="font-semibold text-foreground">{sample.collectedBy}</span>
                 </span>
                 <span>
                   Time:{" "}
-                  <span className="font-medium text-foreground">
+                  <span className="font-semibold text-foreground">
                     {sample.collectedAt && formatDateTime(sample.collectedAt)}
                   </span>
                 </span>
               </div>
             ) : (
-              <div className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <div className="mt-1.5 inline-flex rounded-[6px] bg-muted px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Sample not collected
               </div>
             )}
           </div>
         </div>
-        <div className="relative flex items-center gap-2">
+
+        <div className="relative flex items-center justify-end gap-2">
           {isCollected ? (
             <>
-              <span className="rounded-md bg-success-soft px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-success">
+              <span className="rounded-[6px] bg-success-soft px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-success">
                 Sample collected
               </span>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted"
+                className="flex h-8 w-8 items-center justify-center rounded-[8px] border border-border text-muted-foreground hover:bg-muted sm:h-9 sm:w-9"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 top-9 z-20 w-48 overflow-hidden rounded-lg border border-border bg-surface shadow-lg">
+                  <div className="absolute right-0 top-10 z-20 w-48 overflow-hidden rounded-[12px] border border-border bg-surface shadow-lg">
                     <button
                       onClick={() => {
                         setMenuOpen(false);
@@ -556,7 +579,7 @@ function SampleCard({
           ) : (
             <button
               onClick={onCollect}
-              className="inline-flex items-center gap-2 rounded-md border border-primary bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-primary-soft"
+              className="inline-flex h-8 items-center gap-2 rounded-[8px] border-[2px] border-foreground bg-surface px-3.5 text-[11px] font-semibold text-foreground hover:bg-muted sm:h-9 sm:px-4 sm:text-[12px]"
             >
               Collect Sample →
             </button>
@@ -564,61 +587,60 @@ function SampleCard({
         </div>
       </div>
 
-      <div className="border-t border-border px-4 pb-4">
-        <div className="py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="border-t border-border px-3 pb-3 sm:px-4 sm:pb-4">
+        <div className="py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Tests in this sample
         </div>
-        <ul className="divide-y divide-border">
+        <ul className="space-y-3">
           {sampleTests.map((ot) => {
             const t = getTest(ot.testId);
             if (!t) return null;
             const tm = testStatusMeta[ot.status];
             return (
-              <li
-                key={ot.testId}
-                className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <div className="text-sm font-semibold">{t.name}</div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-                    <span>
-                      {t.code} · {t.department}
-                    </span>
-                    {ot.assignedTo ? (
-                      <span className="inline-flex items-center gap-1 text-primary">
-                        <UserPlus className="h-3 w-3" />
-                        Assigned: <span className="underline underline-offset-2">{ot.assignedTo}</span>
+              <li key={ot.testId} className="rounded-[10px] border border-border px-3 py-3">
+                <div className="flex flex-row justify-between gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div>
+                    <div className="text-[13px] font-semibold sm:text-[14px]">{t.name}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground sm:text-[11px]">
+                      <span>
+                        {t.code} · {t.department}
                       </span>
-                    ) : (
-                      <button
-                        onClick={() => onAssignTest(ot.testId)}
-                        className="inline-flex items-center gap-1 text-primary"
-                      >
-                        <UserPlus className="h-3 w-3" /> Assign
-                      </button>
-                    )}
+                      {ot.assignedTo ? (
+                        <span className="inline-flex items-center gap-1 text-primary">
+                          <UserPlus className="h-3 w-3" />
+                          Assigned: <span className="underline underline-offset-2">{ot.assignedTo}</span>
+                        </span>
+                      ) : (
+                        <button onClick={() => onAssignTest(ot.testId)} className="inline-flex items-center gap-1 text-primary">
+                          <UserPlus className="h-3 w-3" /> Assign
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <StatusPill tone={tm.tone} label={tm.label} />
-                  <TestRowAction order={order} ot={ot} />
+                  <div className="flex flex-wrap justify-end items-center gap-2.5 xl:justify-end">
+                    <StatusPill tone={tm.tone} label={tm.label} />
+                    <TestRowAction order={order} ot={ot} />
+                  </div>
                 </div>
               </li>
             );
           })}
         </ul>
       </div>
-    </div>
+    </section>
   );
 }
 
 function TestRowAction({ order, ot }: { order: Order; ot: OrderTest }) {
-  if (ot.status === "in_progress" || ot.status === "pending") {
+  if (ot.status === "pending") {
+    return null;
+  }
+  if (ot.status === "in_progress") {
     return (
       <Link
         to="/lims/orders/$orderId/result/$testId"
         params={{ orderId: order.id, testId: ot.testId }}
-        className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+        className="inline-flex h-8 items-center rounded-[8px] bg-muted px-3.5 text-[11px] font-medium text-foreground hover:bg-muted/80 sm:h-9 sm:px-4 sm:text-[12px]"
       >
         Enter Result →
       </Link>
@@ -630,7 +652,7 @@ function TestRowAction({ order, ot }: { order: Order; ot: OrderTest }) {
         to="/lims/orders/$orderId/result/$testId"
         params={{ orderId: order.id, testId: ot.testId }}
         search={{ mode: "approve" }}
-        className="rounded-md border border-primary px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary-soft"
+        className="inline-flex h-8 items-center rounded-[8px] border-[2px] border-primary px-3.5 text-[11px] font-medium text-primary hover:bg-primary-soft sm:h-9 sm:px-4 sm:text-[12px]"
       >
         Approve Result →
       </Link>
@@ -642,7 +664,7 @@ function TestRowAction({ order, ot }: { order: Order; ot: OrderTest }) {
         to="/lims/orders/$orderId/result/$testId"
         params={{ orderId: order.id, testId: ot.testId }}
         search={{ mode: "view" }}
-        className="rounded-md border border-foreground px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+        className="inline-flex h-8 items-center rounded-[8px] border border-foreground px-3.5 text-[11px] font-semibold hover:bg-muted sm:h-9 sm:px-4 sm:text-[12px]"
       >
         Publish →
       </Link>
@@ -652,7 +674,7 @@ function TestRowAction({ order, ot }: { order: Order; ot: OrderTest }) {
     <Link
       to="/lims/orders/$orderId/report/$testId"
       params={{ orderId: order.id, testId: ot.testId }}
-      className="rounded-md border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted"
+      className="inline-flex h-8 items-center rounded-[8px] border border-border px-3.5 text-[11px] font-semibold hover:bg-muted sm:h-9 sm:px-4 sm:text-[12px]"
     >
       View Report →
     </Link>
