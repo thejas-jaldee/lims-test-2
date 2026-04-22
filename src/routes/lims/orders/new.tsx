@@ -1,5 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Search, Plus, Trash2, Minus, ChevronDown, FileText } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Trash2,
+  Minus,
+  ChevronDown,
+  FileText,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -48,6 +58,8 @@ function CreateOrderPage() {
   const [viewMore, setViewMore] = useState(false);
   const [doctorFee, setDoctorFee] = useState(0);
   const [discount, setDiscount] = useState(0);
+  const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [testPage, setTestPage] = useState(1);
 
   const patientResults = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -64,12 +76,37 @@ function CreateOrderPage() {
 
   const testResults = useMemo(() => {
     const q = testSearch.trim().toLowerCase();
-    if (showAllTests) return tests;
     if (!q) return [];
     return tests.filter(
       (t) => t.name.toLowerCase().includes(q) || t.code.toLowerCase().includes(q),
     );
-  }, [testSearch, showAllTests, tests]);
+  }, [testSearch, tests]);
+
+  const departments = useMemo(
+    () => ["all", ...Array.from(new Set(tests.map((t) => t.department)))],
+    [tests],
+  );
+
+  const filteredDialogTests = useMemo(() => {
+    const q = testSearch.trim().toLowerCase();
+    return tests.filter((t) => {
+      const matchesSearch =
+        !q ||
+        t.name.toLowerCase().includes(q) ||
+        t.code.toLowerCase().includes(q) ||
+        (t.shortName?.toLowerCase().includes(q) ?? false);
+      const matchesDepartment = departmentFilter === "all" || t.department === departmentFilter;
+      return matchesSearch && matchesDepartment;
+    });
+  }, [departmentFilter, testSearch, tests]);
+
+  const TESTS_PER_PAGE = 9;
+  const totalDialogPages = Math.max(1, Math.ceil(filteredDialogTests.length / TESTS_PER_PAGE));
+  const safeDialogPage = Math.min(testPage, totalDialogPages);
+  const dialogTests = filteredDialogTests.slice(
+    (safeDialogPage - 1) * TESTS_PER_PAGE,
+    safeDialogPage * TESTS_PER_PAGE,
+  );
 
   const itemDiscountTotal = selected.reduce((acc, s) => acc + s.discount, 0);
   const subtotal = selected.reduce((acc, s) => acc + s.qty * s.price, 0);
@@ -346,14 +383,17 @@ function CreateOrderPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowAllTests((v) => !v)}
+                  onClick={() => {
+                    setShowAllTests(true);
+                    setTestPage(1);
+                  }}
                   className="inline-flex items-center justify-center rounded-md bg-foreground px-5 py-2.5 text-sm font-semibold text-background hover:opacity-90"
                 >
                   View All Tests
                 </button>
               </div>
 
-              {testResults.length > 0 && (
+              {!showAllTests && testResults.length > 0 && (
                 <ul className="mt-3 max-h-56 divide-y divide-border overflow-y-auto rounded-md border border-border">
                   {testResults.map((t) => (
                     <li key={t.id}>
@@ -650,6 +690,36 @@ function CreateOrderPage() {
           </section>
         </aside>
       </div>
+
+      <TestSelectionDialog
+        open={showAllTests}
+        tests={dialogTests}
+        selectedIds={selected.map((item) => item.testId)}
+        total={filteredDialogTests.length}
+        page={safeDialogPage}
+        totalPages={totalDialogPages}
+        departments={departments}
+        search={testSearch}
+        department={departmentFilter}
+        onClose={() => setShowAllTests(false)}
+        onSearchChange={(value) => {
+          setTestSearch(value);
+          setTestPage(1);
+        }}
+        onDepartmentChange={(value) => {
+          setDepartmentFilter(value);
+          setTestPage(1);
+        }}
+        onToggle={(id) => {
+          const existing = selected.some((item) => item.testId === id);
+          if (existing) {
+            setSelected((arr) => arr.filter((item) => item.testId !== id));
+            return;
+          }
+          addTest(id);
+        }}
+        onPageChange={setTestPage}
+      />
     </div>
   );
 }
@@ -659,6 +729,269 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-center justify-between">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function TestSelectionDialog({
+  open,
+  tests,
+  selectedIds,
+  total,
+  page,
+  totalPages,
+  departments,
+  search,
+  department,
+  onClose,
+  onSearchChange,
+  onDepartmentChange,
+  onToggle,
+  onPageChange,
+}: {
+  open: boolean;
+  tests: Array<{ id: string; name: string; department: string }>;
+  selectedIds: string[];
+  total: number;
+  page: number;
+  totalPages: number;
+  departments: string[];
+  search: string;
+  department: string;
+  onClose: () => void;
+  onSearchChange: (value: string) => void;
+  onDepartmentChange: (value: string) => void;
+  onToggle: (id: string) => void;
+  onPageChange: (value: number) => void;
+}) {
+  if (!open) return null;
+
+  const visiblePages =
+    totalPages <= 6
+      ? Array.from({ length: totalPages }, (_, index) => index + 1)
+      : [1, 2, null, page, null, totalPages];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-2 backdrop-blur-[2px] sm:p-3">
+      <div className="flex max-h-[88vh] w-full max-w-[min(94vw,640px)] flex-col overflow-hidden rounded-[16px] bg-background shadow-[0_20px_56px_rgba(15,23,42,0.2)] sm:rounded-[18px]">
+        <div className="flex items-start justify-between px-4 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
+          <div className="text-[14px] font-semibold tracking-tight text-foreground sm:text-[15px]">
+            Select Test
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#ded7cb] text-[#786f62] transition-colors hover:bg-muted sm:h-9 sm:w-9"
+          >
+            <X className="h-4 w-4" strokeWidth={1.8} />
+          </button>
+        </div>
+
+        <div className="px-4 pb-4 sm:px-5 sm:pb-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex h-10 flex-1 items-center gap-2 rounded-[10px] border border-[#ddd8cf] bg-background px-3 sm:h-11 sm:px-4">
+              <Search className="h-4 w-4 text-[#c0bab0] sm:h-5 sm:w-5" strokeWidth={2} />
+              <input
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Search by test name or test code"
+                className="min-w-0 flex-1 bg-transparent text-[12px] font-normal tracking-tight outline-none placeholder:text-[#a8a293] sm:text-[13px]"
+              />
+            </div>
+
+            <div className="relative w-full lg:w-[210px]">
+              <select
+                value={department}
+                onChange={(e) => onDepartmentChange(e.target.value)}
+                className="h-10 w-full appearance-none rounded-[10px] border border-[#dde3ef] bg-background px-3 pr-8 text-[12px] tracking-tight text-foreground outline-none sm:h-11 sm:px-4 sm:pr-10 sm:text-[13px]"
+              >
+                <option value="all">Select By Department</option>
+                {departments
+                  .filter((item) => item !== "all")
+                  .map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#7b8190] sm:h-5 sm:w-5" />
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden border-t border-[#eef1f5]">
+          <div className="hidden bg-[#eef1f4] md:block">
+            <div className="grid grid-cols-[40px_72px_minmax(0,1fr)_120px] items-center px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.02em] text-[#777f8b]">
+              <div />
+              <div>Select</div>
+              <div>Test Name</div>
+              <div>Department</div>
+            </div>
+          </div>
+
+          <div className="min-h-0 overflow-y-auto bg-background">
+            <div className="hidden md:block">
+              {tests.map((test) => {
+                const checked = selectedIds.includes(test.id);
+                return (
+                  <div
+                    key={test.id}
+                    className="grid grid-cols-[40px_72px_minmax(0,1fr)_120px] items-center border-b border-[#edf0f4] px-4 py-3"
+                  >
+                    <div className="grid w-[8px] grid-cols-2 gap-0.5 text-foreground">
+                      {Array.from({ length: 6 }).map((_, index) => (
+                        <span key={index} className="h-[2px] w-[2px] rounded-full bg-current" />
+                      ))}
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => onToggle(test.id)}
+                        className={cn(
+                          "inline-flex h-[24px] w-[24px] items-center justify-center rounded-[7px] border-2 transition-colors",
+                          checked
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-primary bg-background text-transparent",
+                        )}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-3 w-3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.8"
+                        >
+                          <path d="M5 13.2l4.4 4.4L19 8" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <div className="truncate pr-4 text-[11px] font-medium tracking-tight text-foreground sm:text-[12px]">
+                      {test.name}
+                    </div>
+                    <div className="text-[11px] tracking-tight text-foreground sm:text-[12px]">
+                      {test.department}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="md:hidden">
+              {tests.map((test) => {
+                const checked = selectedIds.includes(test.id);
+                return (
+                  <div
+                    key={test.id}
+                    className="border-b border-[#edf0f4] px-3 py-2.5"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="mt-1.5 grid w-[8px] grid-cols-2 gap-0.5 text-foreground">
+                        {Array.from({ length: 6 }).map((_, index) => (
+                          <span key={index} className="h-[2px] w-[2px] rounded-full bg-current" />
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onToggle(test.id)}
+                        className={cn(
+                          "mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border-2 transition-colors",
+                          checked
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-primary bg-background text-transparent",
+                        )}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.8"
+                        >
+                          <path d="M5 13.2l4.4 4.4L19 8" />
+                        </svg>
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[13px] font-medium tracking-tight text-foreground">
+                          {test.name}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-muted-foreground">
+                          {test.department}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-col gap-2 text-[11px] text-[#647286] sm:flex-row sm:items-center sm:justify-between sm:text-[12px]">
+            <div>Showing {Math.min(total, page * 9)} of {total} tests</div>
+            <div className="flex flex-wrap items-center gap-4">
+              <button
+                type="button"
+                onClick={() => onPageChange(Math.max(1, page - 1))}
+                disabled={page <= 1}
+                className="inline-flex items-center gap-2 disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Prev
+              </button>
+
+              {visiblePages.map((item, index) =>
+                item === null ? (
+                  <span key={`ellipsis-${index}`}>...</span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => onPageChange(item)}
+                    className={cn(
+                      "min-w-4",
+                      item === page ? "font-semibold text-primary" : "text-[#647286]",
+                    )}
+                  >
+                    {item}
+                  </button>
+                ),
+              )}
+
+              <button
+                type="button"
+                onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+                disabled={page >= totalPages}
+                className="inline-flex items-center gap-2 disabled:opacity-40"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1 sm:gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-9 items-center justify-center rounded-[10px] border border-[#ddd7cb] bg-background px-4 text-[12px] font-medium text-[#61584d] transition-colors hover:bg-muted sm:h-10 sm:px-5 sm:text-[13px]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-9 items-center justify-center rounded-[10px] bg-primary px-5 text-[12px] font-semibold text-primary-foreground hover:opacity-95 sm:h-10 sm:px-6 sm:text-[13px]"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
