@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import {
+  ArrowLeft,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
@@ -17,19 +18,16 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/layout/PageHeader";
 import { Barcode } from "@/components/lims/Barcode";
 import { Modal } from "@/components/lims/Modal";
 import { StatusPill } from "@/components/lims/StatusPill";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  formatDate,
-  formatDateTime,
   formatINR,
+  getOrder,
   getPatient,
   getTest,
-  getOrder,
   orderStatusMeta,
   type InvoiceActivity,
   type Order,
@@ -73,7 +71,6 @@ function InvoicePage() {
   const orderMeta = orderStatusMeta[order.status];
   const balance = Math.max(order.totals.total - order.totals.paid, 0);
   const isPaid = balance <= 0;
-  const isPartial = order.paymentStatus === "Partial";
   const activity = order.invoiceActivity ?? [];
   const invoiceUrl =
     typeof window === "undefined"
@@ -102,46 +99,27 @@ function InvoicePage() {
     setSettleAmount(balance > 0 ? balance.toFixed(2) : "0.00");
   }, [balance]);
 
-  const paymentTone = useMemo(() => {
-    if (isPaid) return "text-success";
-    if (isPartial) return "text-warning";
-    return "text-danger";
-  }, [isPaid, isPartial]);
-
-  const paymentLabel = useMemo(() => {
-    if (isPaid) return "PAID";
-    if (isPartial) return "PARTIAL";
-    return "UNPAID";
-  }, [isPaid, isPartial]);
-
-  const invoiceDate = useMemo(() => {
-    const d = new Date(order.createdAt);
-    return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-  }, [order.createdAt]);
-
   const testRows = order.tests
     .map((item) => {
       const test = getTest(item.testId);
       if (!test) return null;
       return {
         id: item.testId,
-        code: test.shortName || test.code,
+        code: test.shortName || test.code.replace("-001", ""),
         name: test.name,
         category: test.department,
-        type: test.specimen === "N/A" ? "Service" : "Test",
+        type: "Test",
         total: item.price * item.qty,
       };
     })
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-  const openSettleDialog = () => {
-    setSettleAmount(balance > 0 ? balance.toFixed(2) : "0.00");
-    setSettleMethod(order.paymentMethod || "Credit Card");
-    setTransactionId(order.transactionId || "");
-    setSettleNote("");
-    setSettleOpen(true);
-    setMoreOpen(false);
-  };
+  const invoiceNo = order.invoiceNo ?? "INV-001";
+  const orderDisplay = order.number.replace("ORD-", "");
+  const invoiceDate = formatLongDate(order.createdAt);
+  const paymentDate = order.paymentDate ? formatShortDate(order.paymentDate) : "3/1/2026";
+  const paymentStatus = isPaid ? "PAID" : order.paymentStatus === "Partial" ? "PARTIAL" : "UNPAID";
+  const paymentTone = isPaid ? "text-success" : order.paymentStatus === "Partial" ? "text-warning" : "text-danger";
 
   const handlePrint = () => {
     if (typeof window !== "undefined") {
@@ -177,15 +155,13 @@ function InvoicePage() {
       }
     }
 
-    const description =
-      shareChannel === "email"
-        ? `Invoice shared to ${shareRecipient || patient.email} by email.`
-        : `Invoice shared to ${shareRecipient || patient.phone} via WhatsApp.`;
-
     logInvoiceActivity(order.id, {
       type: "shared",
       title: "Invoice shared",
-      description,
+      description:
+        shareChannel === "email"
+          ? `Invoice shared to ${shareRecipient || patient.email} by email.`
+          : `Invoice shared to ${shareRecipient || patient.phone} via WhatsApp.`,
       by: "Admin User",
     });
     toast.success(shareChannel === "email" ? "Invoice emailed" : "Invoice shared via WhatsApp");
@@ -226,30 +202,59 @@ function InvoicePage() {
 
   return (
     <div>
-      <PageHeader
-        title="Invoice Details"
-        backTo={`/lims/orders/${order.id}`}
-        right={
-          <>
+      <section className="-mx-3 -mt-4 border-b border-border bg-surface px-4 py-4 md:-mx-4 lg:-mx-5">
+        <div className="flex items-center gap-2 text-[15px] font-semibold text-foreground sm:text-[16px]">
+          <Link
+            to="/lims/orders/$orderId"
+            params={{ orderId: order.id }}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <span>Back</span>
+        </div>
+      </section>
+
+      <section className="mt-5 rounded-[10px] border border-border bg-surface px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="text-[14px] font-semibold uppercase tracking-[-0.02em] text-primary underline decoration-primary/30 underline-offset-3 sm:text-[16px]">
+              ORDER #{orderDisplay}
+            </div>
+            <StatusPill
+              tone={orderMeta.tone}
+              label={orderMeta.label}
+              className="rounded-full px-3 py-1 text-[11px] font-semibold sm:px-4 sm:py-1.5 sm:text-[12px]"
+            />
+          </div>
+
+          <div className="grid w-full grid-cols-1 gap-2 min-[360px]:grid-cols-2 xl:flex xl:w-auto xl:flex-wrap xl:items-center xl:gap-3">
             <button
               onClick={handlePrint}
-              className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-4 text-sm font-semibold hover:bg-muted"
+              className="inline-flex h-[40px] w-full items-center justify-center gap-2 rounded-[7px] bg-[#f0f1f3] px-4 text-[13px] font-semibold text-foreground hover:bg-[#e9ecef] sm:h-[44px] sm:px-6 sm:text-[15px] xl:w-auto"
             >
               <Printer className="h-4 w-4" />
               Print
             </button>
             <button
-              onClick={openSettleDialog}
+              onClick={() => {
+                setSettleAmount(balance > 0 ? balance.toFixed(2) : "0.00");
+                setSettleMethod(order.paymentMethod || "Credit Card");
+                setTransactionId(order.transactionId || "");
+                setSettleNote("");
+                setSettleOpen(true);
+                setMoreOpen(false);
+              }}
               disabled={isPaid}
-              className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-[40px] w-full items-center justify-center gap-2 rounded-[7px] bg-primary px-4 text-[13px] font-semibold text-primary-foreground hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50 sm:h-[44px] sm:px-6 sm:text-[15px] xl:w-auto"
             >
-              <CheckCircle2 className="h-4 w-4" />
-              {isPaid ? "Invoice Settled" : isPartial ? "Add Payment" : "Settle Invoice"}
+              <CheckCircle2 className="hidden h-4 w-4" />
+              {isPaid ? "Invoice Settled" : "Settle Invoice"}
             </button>
-            <div className="relative">
+            <div className="relative min-[360px]:col-span-2 xl:col-auto">
               <button
                 onClick={() => setMoreOpen((open) => !open)}
-                className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-surface px-4 text-sm font-semibold hover:bg-muted"
+                className="inline-flex h-[40px] w-full items-center justify-center gap-2 rounded-[7px] border border-border bg-surface px-4 text-[13px] font-semibold text-primary hover:bg-muted sm:h-[44px] sm:px-5 sm:text-[15px] xl:w-auto"
               >
                 More Action
                 <ChevronDown className={cn("h-4 w-4 transition-transform", moreOpen && "rotate-180")} />
@@ -257,7 +262,7 @@ function InvoicePage() {
               {moreOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMoreOpen(false)} />
-                  <div className="absolute right-0 top-12 z-20 w-52 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+                  <div className="absolute right-0 top-[46px] z-20 w-[150px] overflow-hidden rounded-[10px] border border-border bg-surface shadow-[0_10px_28px_rgba(15,23,42,0.16)] sm:w-[160px]">
                     <MenuButton
                       icon={Share2}
                       label="Share Invoice"
@@ -289,197 +294,192 @@ function InvoicePage() {
                 </>
               )}
             </div>
-          </>
-        }
-      />
-
-      <section className="rounded-2xl border border-border bg-surface px-6 py-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-[15px] font-semibold text-primary underline decoration-primary/40 underline-offset-4">
-              ORDER #{order.number}
-            </h2>
-            <StatusPill tone={orderMeta.tone} label={orderMeta.label} />
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>Invoice: {order.invoiceNo ?? `INV-${order.number}`}</span>
-            <span className="hidden h-1 w-1 rounded-full bg-muted-foreground md:block" />
-            <span>Created {formatDate(order.createdAt)}</span>
           </div>
         </div>
       </section>
 
-      <section className="mt-4 rounded-[28px] border border-border bg-surface p-5 shadow-card md:p-8">
-        <div className="mx-auto max-w-5xl rounded-[26px] border border-border bg-white px-6 py-8 shadow-soft md:px-12 md:py-10">
-          <div className="flex flex-col gap-8 border-b border-border pb-6 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-soft text-violet">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
-                  <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2z" />
-                </svg>
-              </div>
-              <div>
-                <div className="text-[19px] font-bold tracking-tight text-foreground md:text-[21px]">
-                  Global Care Hospital
+      <section className="mt-4 rounded-[10px] border border-border bg-surface-muted">
+        <div className="rounded-[10px] bg-surface px-3 py-3 sm:px-5 sm:py-5 md:px-6 md:py-6">
+          <div className="mx-auto max-w-[970px] rounded-[18px] border border-[#d9dee7] bg-white px-3 py-4 shadow-[0_2px_12px_rgba(17,24,39,0.05)] min-[360px]:px-4 min-[360px]:py-5 sm:px-6 sm:py-8 md:px-8 md:py-10 lg:px-11 lg:py-12">
+            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between md:gap-8">
+              <div className="flex min-w-0 flex-col">
+                <div className="flex flex-row gap-3 sm:gap-4">
+                <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-violet-soft text-violet sm:h-9 sm:w-9">
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                    <path d="M12 2l1.6 4.2L18 8l-4.4 1.8L12 14l-1.6-4.2L6 8l4.4-1.8L12 2z" />
+                  </svg>
                 </div>
-                <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    MG Road, Kozhikode - 673001
+                <div className="min-w-0">
+                  <div className="text-[17px] font-bold tracking-[-0.04em] text-foreground min-[360px]:text-[18px] sm:text-[22px] md:text-[24px]">Global Care Hospital</div>
+                  
+                </div>
+                </div>
+                <div className="mt-3 space-y-2 text-[12px] text-muted-foreground min-[360px]:text-[13px] sm:mt-5 sm:text-[14px]">
+                    <div className="flex items-center gap-2.5">
+                      <MapPin className="h-[15px] w-[15px]" />
+                      MG Road, Kozhikode - 673001
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Phone className="h-[15px] w-[15px]" />
+                      +919633360166
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                      <Mail className="h-[15px] w-[15px]" />
+                      info@globalcare.com
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-primary" />
-                    +91 9633360166
+              </div>
+
+              <div className="flex flex-col items-start md:items-end">
+                <div className="flex flex-wrap items-end gap-2 md:justify-end">
+                  <div className="flex h-[34px] w-[78px] items-center justify-start sm:h-[38px] sm:w-[92px] md:justify-end">
+                    <div className="origin-left scale-[0.6] sm:origin-right sm:scale-[0.72]">
+                      <Barcode value={invoiceNo} />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-primary" />
-                    info@globalcare.com
+
+                  <div className="inline-flex h-[34px] items-center gap-2 rounded-[10px] bg-violet-soft px-3 text-[12px] font-bold text-[#5757ff] sm:h-[38px] sm:px-4 sm:text-[13px]">
+                    <ClipboardList className="h-3 w-3" />
+                    INVOICE
+                  </div>
+                </div>
+                <div className="mt-2 space-y-0.5 text-left text-[12px] leading-5 min-[360px]:text-[13px] min-[360px]:leading-6 sm:text-[14px] sm:leading-7 md:mt-4 md:text-right md:leading-8">
+                  <div>
+                    <span className="text-muted-foreground">Invoice #: </span>
+                    <span className="font-semibold">{invoiceNo}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Order #: </span>
+                    <span className="font-semibold">#{orderDisplay}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Date: </span>
+                    <span className="font-semibold">{invoiceDate}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col items-start gap-3 md:items-end">
-              <Barcode value={order.invoiceNo ?? order.number} />
-              <div className="inline-flex items-center rounded-xl bg-violet-soft px-4 py-2 text-lg font-bold text-violet">
-                INVOICE
-              </div>
-              <div className="space-y-1 text-sm md:text-right">
-                <div>
-                  <span className="text-muted-foreground">Invoice #: </span>
-                  <span className="font-semibold">{order.invoiceNo ?? `INV-${order.number}`}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Order #: </span>
-                  <span className="font-semibold">{order.number}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Date: </span>
-                  <span className="font-semibold">{invoiceDate}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+            <div className="mt-6 border-t border-[#e5e7eb]" />
 
-          <div className="mt-6 grid gap-6 md:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-2xl bg-[oklch(0.967_0.006_90)] p-5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Patient Details
-              </div>
-              <div className="mt-3 space-y-2">
-                <div className="text-[26px] font-semibold tracking-tight text-foreground">{patient.name}</div>
-                <div className="text-sm text-muted-foreground">
-                  {patient.id} · {patient.age} yrs · {patient.gender}
+            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 xl:gap-14">
+              <div className="max-w-full rounded-[12px] bg-[#f1efe7] px-4 py-4 lg:max-w-[458px]">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#a19b8f]">
+                  Patient Details
                 </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-4 w-4 text-primary" />
-                    {patient.phone}
+                <div className="mt-2.5 text-[12px] text-foreground min-[360px]:text-[13px] sm:text-[14px]">
+                  <div className="text-[14px] font-medium min-[360px]:text-[15px] sm:text-[16px]">{patient.name}</div>
+                  <div className="mt-1">{patient.id}</div>
+                  <div className="mt-1">
+                    {patient.age} yrs · {patient.gender}
                   </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="h-4 w-4 text-primary" />
-                    {patient.email}
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    {patient.address}
+                  <div className="mt-3 space-y-2 text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-[14px] w-[14px]" />
+                      {patient.phone}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-[14px] w-[14px]" />
+                      {patient.email}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-[14px] w-[14px]" />
+                      {patient.address}
+                    </div>
                   </div>
                 </div>
               </div>
+
+              <div className="pt-0">
+                <MetaRow
+                  label="Payment Status:"
+                  value={<span className={cn("text-[14px] font-semibold min-[360px]:text-[16px]", paymentTone)}>{paymentStatus}</span>}
+                />
+                <div className="h-4" />
+                <MetaRow label="Payment Method:" value={order.paymentMethod ?? "Credit Card"} />
+                <div className="h-4" />
+                <MetaRow label="Transaction ID:" value={order.transactionId ?? "TXN878707"} />
+                <div className="h-4" />
+                <MetaRow label="Payment Date:" value={paymentDate} />
+              </div>
             </div>
 
-            <div className="flex flex-col justify-center gap-4 rounded-2xl border border-border p-5">
-              <MetaRow
-                label="Payment Status"
-                value={<span className={cn("text-xl font-bold tracking-wide", paymentTone)}>{paymentLabel}</span>}
-              />
-              <MetaRow label="Payment Method" value={order.paymentMethod ?? "Not settled"} />
-              <MetaRow
-                label="Transaction ID"
-                value={
-                  <span className="font-mono text-xs text-foreground">{order.transactionId ?? "Not available"}</span>
-                }
-              />
-              <MetaRow
-                label="Payment Date"
-                value={order.paymentDate ? formatDateTime(order.paymentDate) : "Pending"}
-              />
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <div className="mb-3 text-[28px] font-semibold tracking-tight text-foreground">Test Details</div>
-            <div className="overflow-hidden rounded-2xl border border-border">
-              <table className="w-full text-sm">
-                <thead className="bg-primary text-primary-foreground">
-                  <tr className="text-left">
-                    <th className="px-4 py-3 font-semibold">Test Code</th>
-                    <th className="px-4 py-3 font-semibold">Test Details</th>
-                    <th className="px-4 py-3 font-semibold">Category</th>
-                    <th className="px-4 py-3 font-semibold">Type</th>
-                    <th className="px-4 py-3 text-right font-semibold">Price</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-white">
-                  {testRows.map((test) => (
-                    <tr key={test.id}>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex rounded-md bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
-                          {test.code}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-foreground">{test.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{test.category}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{test.type}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-foreground">{formatINR(test.total)}</td>
+            <div className="mt-7">
+              <div className="mb-3 text-[16px] font-semibold tracking-[-0.02em] text-foreground sm:text-[18px]">Test Details</div>
+              <div className="overflow-x-auto rounded-[10px] border border-[#dce1e8]">
+                <table className="w-full min-w-[540px] text-sm min-[360px]:min-w-[580px] sm:min-w-[640px]">
+                  <thead className="bg-primary text-primary-foreground">
+                    <tr className="text-left">
+                      <th className="px-4 py-3 text-[13px] font-semibold">Test Code</th>
+                      <th className="px-4 py-3 text-[13px] font-semibold">Test Details</th>
+                      <th className="px-4 py-3 text-[13px] font-semibold">Category</th>
+                      <th className="px-4 py-3 text-[13px] font-semibold">Type</th>
+                      <th className="px-4 py-3 text-right text-[13px] font-semibold">Price</th>
                     </tr>
-                  ))}
-                  {testRows.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                        No items on this invoice.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="mt-8 flex justify-end">
-            <div className="w-full max-w-[360px] rounded-2xl border border-border bg-surface-muted/60 p-5">
-              <div className="space-y-3">
-                <SummaryRow label="Total Items" value={`${order.tests.length} selected`} />
-                <SummaryRow label="Doctor Fee" value={formatINR(order.totals.doctorFee)} />
-                <SummaryRow label="Discount" value={formatINR(order.totals.discount)} />
-                <SummaryRow label="Subtotal" value={formatINR(order.totals.subtotal)} />
-                <SummaryRow label={`GST (${order.totals.gstPct}%)`} value={formatINR(order.totals.gst)} />
-              </div>
-              <div className="my-4 border-t border-dashed border-border" />
-              <div className="space-y-3">
-                <SummaryRow
-                  label={<span className="text-xl font-bold text-foreground">Total</span>}
-                  value={<span className="text-2xl font-bold text-primary">{formatINR(order.totals.total)}</span>}
-                />
-                <SummaryRow
-                  label={<span className="font-medium text-success">Amount Paid</span>}
-                  value={<span className="font-semibold text-success">{formatINR(order.totals.paid)}</span>}
-                />
-                <SummaryRow
-                  label={<span className="font-medium text-foreground">Balance Due</span>}
-                  value={
-                    <span className={cn("font-semibold", balance > 0 ? "text-foreground" : "text-success")}>
-                      {formatINR(balance)}
-                    </span>
-                  }
-                />
+                  </thead>
+                  <tbody className="divide-y divide-border bg-white">
+                    {testRows.map((test) => (
+                      <tr key={test.id}>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex rounded-[6px] bg-[#d7f2ef] px-2.5 py-1 text-[11px] font-medium text-primary sm:px-3 sm:text-[12px]">
+                            {test.code}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[13px] font-medium text-foreground sm:text-[14px]">{test.name}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground sm:text-[14px]">{test.category}</td>
+                        <td className="px-4 py-3 text-[13px] text-muted-foreground sm:text-[14px]">{test.type}</td>
+                        <td className="px-4 py-3 text-right text-[13px] font-semibold text-foreground sm:text-[14px]">
+                          {formatINR(test.total)}
+                        </td>
+                      </tr>
+                    ))}
+                    {testRows.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                          No items on this invoice.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
-          </div>
 
-          <div className="mt-20 border-t border-border pt-6 text-center text-xs text-muted-foreground">
-            <div>This is a computer-generated invoice and does not require a signature.</div>
-            <div className="mt-1">© 2026 Jaldee Soft Pvt Ltd. All rights reserved.</div>
+            <div className="mt-9 flex justify-end">
+              <div className="w-full max-w-[350px]">
+                <div className="space-y-4">
+                  <SummaryRow label="Total Items" value={`${order.tests.length} selected`} />
+                  <SummaryRow label="Doctor Fee" value={order.totals.doctorFee ? formatINR(order.totals.doctorFee) : "0"} />
+                  <SummaryRow label="Discount" value={order.totals.discount ? formatINR(order.totals.discount) : "0"} />
+                  <SummaryRow label="Subtotal" value={formatINR(order.totals.subtotal)} />
+                  <SummaryRow label={`GST (${order.totals.gstPct}%)`} value={formatINR(order.totals.gst)} />
+                </div>
+
+                <div className="mt-4 border-t border-dashed border-[#d7dde6] pt-3.5">
+                  <SummaryRow
+                    label={<span className="text-[18px] font-bold text-foreground">Total</span>}
+                    value={<span className="text-[18px] font-bold text-primary">{formatINR(order.totals.total)}</span>}
+                  />
+                </div>
+
+                <div className="mt-3 border-t border-[#e6e8ee] pt-3">
+                  <SummaryRow
+                    label={<span className="text-success">Amount Paid:</span>}
+                    value={<span className="font-semibold text-success">{formatINR(order.totals.paid)}</span>}
+                  />
+                  <div className="mt-3" />
+                  <SummaryRow
+                    label={<span className="text-foreground">Balance Due:</span>}
+                    value={<span className="font-semibold text-foreground">{formatINR(balance)}</span>}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-10 border-t border-[#e6e8ee] pt-5 text-center text-[10px] text-muted-foreground min-[360px]:mt-12 min-[360px]:text-[11px] sm:mt-20 sm:pt-6 sm:text-[12px] lg:mt-[118px]">
+              <div>This is a computer-generated invoice and does not require a signature.</div>
+              <div className="mt-1">© 2026 Jaldee Soft Pvt Ltd. All rights reserved.</div>
+            </div>
           </div>
         </div>
       </section>
@@ -642,7 +642,7 @@ function InvoicePage() {
           <InfoStrip
             icon={XCircle}
             label="This action will reset the payment state"
-            value={order.invoiceNo ?? `INV-${order.number}`}
+            value={invoiceNo}
             tone="danger"
           />
           <Field label="Reason">
@@ -657,6 +657,16 @@ function InvoicePage() {
       </Modal>
     </div>
   );
+}
+
+function formatLongDate(iso: string) {
+  const date = new Date(iso);
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function formatShortDate(iso: string) {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }
 
 function MenuButton({
@@ -674,7 +684,7 @@ function MenuButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium hover:bg-muted",
+        "flex w-full items-center gap-3 px-4 py-3 text-left text-[14px] font-medium hover:bg-muted",
         tone === "danger" && "text-danger hover:bg-danger-soft",
       )}
     >
@@ -765,7 +775,7 @@ function LogCard({ entry }: { entry: InvoiceActivity }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
             <div className="text-sm font-semibold text-foreground">{entry.title}</div>
-            <div className="text-xs text-muted-foreground">{formatDateTime(entry.at)}</div>
+            <div className="text-xs text-muted-foreground">{formatLongDate(entry.at)}</div>
           </div>
           {entry.description && <div className="mt-1 text-sm text-muted-foreground">{entry.description}</div>}
           <div className="mt-2 inline-flex items-center gap-2 text-xs font-medium text-primary">
@@ -788,8 +798,8 @@ function ActivityIcon({ type }: { type: InvoiceActivity["type"] }) {
 
 function MetaRow({ label, value }: { label: ReactNode; value: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="text-sm text-muted-foreground">{label}</div>
+    <div className="flex items-center justify-between gap-4 text-[14px]">
+      <div className="text-[#5f6776]">{label}</div>
       <div className="text-right font-medium text-foreground">{value}</div>
     </div>
   );
@@ -797,9 +807,9 @@ function MetaRow({ label, value }: { label: ReactNode; value: ReactNode }) {
 
 function SummaryRow({ label, value }: { label: ReactNode; value: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="text-right text-sm font-semibold text-foreground">{value}</div>
+    <div className="flex items-center justify-between gap-4 text-[14px]">
+      <div className="text-[#666c78]">{label}</div>
+      <div className="text-right font-medium text-foreground">{value}</div>
     </div>
   );
 }
