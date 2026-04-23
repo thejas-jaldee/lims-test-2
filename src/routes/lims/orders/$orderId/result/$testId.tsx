@@ -1,32 +1,13 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import {
-  Save,
-  Send,
-  AlertTriangle,
-  Info,
-  Upload,
-  PenLine,
-  CheckCircle2,
-  Eye,
-  RotateCcw,
-  ChevronDown,
-  Image as ImageIcon,
-  X,
-} from "lucide-react";
+import { CalendarDays, Check, ChevronDown, FileImage, Folder, Info, Upload } from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { StatusPill } from "@/components/lims/StatusPill";
-import { PatientAvatar } from "@/components/lims/PatientCard";
-import {
-  getTest,
-  formatDateTime,
-  technicians,
-  type Order,
-} from "@/data/lims";
-import { useLimsStore } from "@/store/limsStore";
+import { PatientCard } from "@/components/lims/PatientCard";
+import { type Order, getTest } from "@/data/lims";
 import { cn } from "@/lib/utils";
+import { useLimsStore } from "@/store/limsStore";
 
 const searchSchema = z.object({
   mode: z.enum(["entry", "approve", "view"]).optional().default("entry"),
@@ -35,8 +16,11 @@ const searchSchema = z.object({
 export const Route = createFileRoute("/lims/orders/$orderId/result/$testId")({
   head: ({ params }) => ({
     meta: [
-      { title: `Result · ${params.testId} — LIMS` },
-      { name: "description", content: `Result entry for test ${params.testId} on order ${params.orderId}.` },
+      { title: `Result - ${params.testId} - LIMS` },
+      {
+        name: "description",
+        content: `Result entry for test ${params.testId} on order ${params.orderId}.`,
+      },
     ],
   }),
   validateSearch: searchSchema,
@@ -48,59 +32,109 @@ export const Route = createFileRoute("/lims/orders/$orderId/result/$testId")({
   component: ResultEntryPage,
 });
 
-const quickInterpretations = [
-  "Normal CBC",
-  "Anaemia pattern",
-  "Infection pattern",
-  "Thrombocytopenia",
-];
+const quickInterpretations = ["Normal CBC", "Anaemia pattern", "Infection pattern"];
+
+type SupplementaryField = {
+  id: string;
+  label: string;
+  helper: string;
+  kind: "select" | "textarea" | "file";
+  unit?: string;
+  choices?: string[];
+};
 
 function ResultEntryPage() {
   const { orderId, testId } = Route.useLoaderData();
   const { mode } = Route.useSearch();
   const navigate = useNavigate();
-  const order = useLimsStore((s) => s.orders.find((o) => o.id === orderId || o.number === orderId)) as Order;
-  const setTestStatus = useLimsStore((s) => s.setTestStatus);
+  const order = useLimsStore((s) =>
+    s.orders.find((o) => o.id === orderId || o.number === orderId),
+  ) as Order;
   const getPatient = useLimsStore((s) => s.getPatient);
+  const setTestStatus = useLimsStore((s) => s.setTestStatus);
+  const patient = getPatient(order.patientId);
   const test = getTest(testId);
-  const handleSubmit = () => {
-    setTestStatus(order.id, testId, "result_entered");
-    toast.success("Result submitted");
-    navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
-  };
-  const handleApprove = () => {
-    setTestStatus(order.id, testId, "result_approved");
-    toast.success("Result approved");
-    navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
-  };
-  const handleReturn = () => {
-    setTestStatus(order.id, testId, "in_progress");
-    toast.error("Returned to technician");
-    navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
-  };
-  const handlePublish = () => {
-    setTestStatus(order.id, testId, "result_published");
-    toast.success("Report published");
-    navigate({ to: "/lims/orders/$orderId/report/$testId", params: { orderId: order.id, testId } });
-  };
-  const patient = getPatient(order.patientId)!;
-  const params = test?.parameters ?? [];
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    if (mode === "entry") return {};
-    // demo prefill
-    const obj: Record<string, string> = {};
-    params.forEach((p, i) => {
-      obj[p.parameter] = String(((p.rangeLow + p.rangeHigh) / 2).toFixed(1));
-      if (i === 0) obj[p.parameter] = String(p.rangeLow - 1); // make first abnormal
-    });
-    return obj;
-  });
-  const [interpretation, setInterpretation] = useState(mode === "entry" ? "" : "Within normal limits. No clinically significant abnormalities detected.");
-  const [enteredBy, setEnteredBy] = useState(technicians[0]);
+
   const readOnly = mode === "view";
   const isApprove = mode === "approve";
+  const isEntry = mode === "entry";
 
-  if (!test) {
+  const baseParameters = useMemo(() => {
+    if (!test?.parameters) return [];
+    if (test.id === "CBC-001") return test.parameters.slice(0, 6);
+    return test.parameters;
+  }, [test]);
+
+  const extraFields: SupplementaryField[] = useMemo(() => {
+    if (test?.id === "CBC-001") {
+      return [
+        {
+          id: "peripheralBloodFilm",
+          label: "Peripheral Blood Film",
+          helper: "Morphology assessment",
+          kind: "select",
+          unit: "g/dL",
+          choices: ["Select", "Normocytic", "Macrocytic", "Microcytic"],
+        },
+        {
+          id: "clinicalInterpretation",
+          label: "Clinical Interpretation / Remarks",
+          helper: "Free-text findings (optional but recommended for flagged results)",
+          kind: "textarea",
+        },
+        {
+          id: "instrumentPrintout",
+          label: "Instrument Printout / Image",
+          helper: "Optional: attach analyzer printout or microscopy image",
+          kind: "file",
+        },
+      ];
+    }
+
+    return [
+      {
+        id: "clinicalInterpretation",
+        label: "Clinical Interpretation / Remarks",
+        helper: "Free-text findings",
+        kind: "textarea",
+      },
+      {
+        id: "instrumentPrintout",
+        label: "Instrument Printout / Image",
+        helper: "Optional file attachment",
+        kind: "file",
+      },
+    ];
+  }, [test?.id]);
+
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    if (isEntry) return {};
+
+    const seeded: Record<string, string> = {};
+    baseParameters.forEach((parameter, index) => {
+      const midpoint = (parameter.rangeLow + parameter.rangeHigh) / 2;
+      seeded[parameter.parameter] = Number.isInteger(midpoint)
+        ? String(midpoint)
+        : midpoint.toFixed(1);
+      if (index === 0 && test?.id === "CBC-001") seeded[parameter.parameter] = "15";
+      if (index === 1 && test?.id === "CBC-001") seeded[parameter.parameter] = "8";
+      if (index === 2 && test?.id === "CBC-001") seeded[parameter.parameter] = "160";
+      if (index === 3 && test?.id === "CBC-001") seeded[parameter.parameter] = "80";
+      if (index === 4 && test?.id === "CBC-001") seeded[parameter.parameter] = "30";
+      if (index === 5 && test?.id === "CBC-001") seeded[parameter.parameter] = "34";
+    });
+    seeded.peripheralBloodFilm = "Macrocytic";
+    seeded.clinicalInterpretation =
+      "Macrocytic pattern noted. Correlate clinically with B12 / folate status.";
+    return seeded;
+  });
+  const [interpretation, setInterpretation] = useState(
+    isEntry ? "" : "Macrocytic pattern noted. Correlate clinically with B12 / folate status.",
+  );
+  const [enteredBy] = useState("Tech. Sreeja R");
+  const [approvedBy, setApprovedBy] = useState("Dr. Rekha Suresh");
+
+  if (!patient || !test) {
     return (
       <div className="p-8 text-center text-sm text-muted-foreground">
         Test not found.{" "}
@@ -111,358 +145,504 @@ function ResultEntryPage() {
     );
   }
 
-  const filled = Object.values(values).filter((v) => v.trim() !== "").length;
+  const totalFields = baseParameters.length + extraFields.length;
+  const filledCount =
+    Object.values(values).filter((value) => value.trim() !== "").length +
+    (interpretation.trim() ? 1 : 0) -
+    (values.clinicalInterpretation ? 1 : 0);
 
-  const flagFor = (p: (typeof params)[number], raw: string) => {
-    const n = parseFloat(raw);
-    if (isNaN(n)) return null;
-    if (p.criticalLow != null && n <= p.criticalLow) return "critical-low";
-    if (p.criticalHigh != null && n >= p.criticalHigh) return "critical-high";
-    if (n < p.rangeLow) return "low";
-    if (n > p.rangeHigh) return "high";
-    return "normal";
+  const handleSubmit = () => {
+    setTestStatus(order.id, testId, "result_entered");
+    toast.success("Result submitted");
+    navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
   };
 
-  const title = isApprove ? "Approve Result" : mode === "view" ? "Result Preview" : "Enter Result";
+  const handleApprove = () => {
+    setTestStatus(order.id, testId, "result_approved");
+    toast.success("Result approved");
+    navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
+  };
+
+  const handleReturn = () => {
+    setTestStatus(order.id, testId, "in_progress");
+    toast.error("Returned to technician");
+    navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
+  };
+
+  const subtitle = `${order.number} · ${patient.name} · ${patient.age} yr ${patient.gender} · ${test.specimen}`;
 
   return (
-    <div>
+    <div className="origin-top-left w-[142.86%] [zoom:0.7]">
       <PageHeader
-        title={title}
+        title={isApprove ? "Approve Result" : readOnly ? "Result Preview" : "Result Entry"}
         backTo="/lims/orders/$orderId"
       />
 
-      <section className="mb-4 rounded-2xl border border-border bg-surface p-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <PatientAvatar name={patient.name} />
-            <div>
-              <div className="text-base font-semibold">{patient.name}</div>
-              <div className="text-xs text-muted-foreground">
-                {patient.id} · {patient.age}y {patient.gender} · Order {order.number}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {mode === "view" && (
-              <>
-                <Link
-                  to="/lims/orders/$orderId/report/$testId"
-                  params={{ orderId: order.id, testId }}
-                  className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-semibold hover:bg-muted"
-                >
-                  <Eye className="h-4 w-4" /> Preview Report
-                </Link>
-                <button onClick={handlePublish} className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90">
-                  <Send className="h-4 w-4" /> Publish Results
-                </button>
-              </>
-            )}
-            {mode === "entry" && <StatusPill tone="warning" label="Pending Entry" />}
-            {isApprove && <StatusPill tone="danger" label="Awaiting Approval" />}
-            <span className="text-xs text-muted-foreground">{formatDateTime(order.createdAt)}</span>
-          </div>
-        </div>
-      </section>
+      <div className="w-full">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0 space-y-3 sm:space-y-4">
+            <section className="rounded-[18px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5 lg:px-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[20px] font-semibold leading-tight text-foreground sm:text-[22px] lg:text-[24px]">
+                    {test.shortName ?? test.code} - {test.name}
+                  </div>
+                  {isEntry ? (
+                    <div className="mt-4 max-w-[560px]">
+                      <div className="flex items-center gap-3 rounded-[18px] border border-border px-3 py-3">
+                        <div className="h-[8px] flex-1 rounded-full bg-[oklch(0.92_0.01_250)]">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{
+                              width: `${Math.min(100, (filledCount / totalFields) * 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="shrink-0 text-[15px] font-medium text-foreground">
+                          {filledCount} / {totalFields} filled
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-[16px] text-muted-foreground sm:text-[17px]">
+                      {subtitle}
+                    </div>
+                  )}
+                </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
-        <section className="rounded-2xl border border-border bg-surface p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold">{test.shortName ?? test.code} — {test.name}</h2>
-              <div className="mt-1 flex items-center gap-3 text-xs">
-                <button className="inline-flex items-center gap-1 text-primary hover:underline">
-                  <Info className="h-3 w-3" /> View Clinical Instruction
-                </button>
-                <span className="text-muted-foreground">·</span>
-                <span className="text-muted-foreground">{filled} / {params.length} filled</span>
-              </div>
-              <div className="mt-2 h-1.5 w-48 rounded-full bg-muted">
-                <div
-                  className="h-1.5 rounded-full bg-primary transition-all"
-                  style={{ width: `${params.length ? (filled / params.length) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-            <div className="text-right text-xs text-muted-foreground">
-              <div>Order Ref</div>
-              <div className="font-mono text-sm font-semibold text-foreground">{order.number}</div>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full">
-              <thead className="bg-surface-muted">
-                <tr className="text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <th className="w-12 px-4 py-2.5">#</th>
-                  <th className="px-4 py-2.5">Parameter</th>
-                  <th className="px-4 py-2.5">Result</th>
-                  <th className="px-4 py-2.5">Unit</th>
-                  <th className="px-4 py-2.5">Reference Range</th>
-                  <th className="px-4 py-2.5">Flag</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border text-sm">
-                {params.map((p, i) => {
-                  const v = values[p.parameter] ?? "";
-                  const flag = flagFor(p, v);
-                  return (
-                    <tr key={p.parameter}>
-                      <td className="px-4 py-3 text-xs font-semibold text-muted-foreground">{i + 1}</td>
-                      <td className="px-4 py-3 font-medium">{p.parameter}</td>
-                      <td className="px-4 py-3">
-                        <input
-                          inputMode="decimal"
-                          readOnly={readOnly || isApprove}
-                          value={v}
-                          onChange={(e) => setValues((s) => ({ ...s, [p.parameter]: e.target.value }))}
-                          placeholder="—"
-                          className={cn(
-                            "h-9 w-28 rounded-md border bg-surface px-2.5 text-sm outline-none transition-colors focus:border-primary",
-                            (readOnly || isApprove) && "bg-surface-muted",
-                            flag === "critical-low" || flag === "critical-high"
-                              ? "border-danger bg-danger-soft/30"
-                              : flag === "high" || flag === "low"
-                                ? "border-warning"
-                                : "border-border",
-                          )}
-                        />
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{p.unit}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {p.rangeLow} – {p.rangeHigh}
-                      </td>
-                      <td className="px-4 py-3">
-                        {flag === "critical-low" || flag === "critical-high" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-xs font-semibold text-danger">
-                            <AlertTriangle className="h-3 w-3" /> Critical
-                          </span>
-                        ) : flag === "high" ? (
-                          <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-[oklch(0.5_0.13_70)]">
-                            ↑ High
-                          </span>
-                        ) : flag === "low" ? (
-                          <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-semibold text-[oklch(0.5_0.13_70)]">
-                            ↓ Low
-                          </span>
-                        ) : flag === "normal" ? (
-                          <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">
-                            Normal
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Peripheral blood film (descriptive parameter) */}
-          <div className="mt-5 rounded-lg border border-border p-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Peripheral Blood Film
-            </div>
-            <textarea
-              rows={2}
-              readOnly={readOnly || isApprove}
-              defaultValue={mode === "entry" ? "" : "Normocytic normochromic RBCs, no abnormal cells seen. Platelets adequate on smear."}
-              placeholder="Enter findings…"
-              className="w-full rounded-md border border-border bg-surface p-3 text-sm outline-none focus:border-primary"
-            />
-          </div>
-
-          {/* Clinical interpretation */}
-          <div className="mt-4 rounded-lg border border-border p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Clinical Interpretation / Remarks
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {quickInterpretations.map((q) => (
-                  <button
-                    key={q}
-                    type="button"
-                    onClick={() => setInterpretation((cur) => (cur ? `${cur}\n${q}` : q))}
-                    className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:border-primary hover:text-primary"
-                  >
-                    + {q}
+                <div className="flex flex-col items-start gap-2 sm:items-end">
+                  {isEntry && (
+                    <div className="text-[18px] font-semibold text-[oklch(0.78_0.01_250)] sm:text-[20px] lg:text-[22px]">
+                      Order {order.number}
+                    </div>
+                  )}
+                  <button className="text-[14px] font-medium text-primary underline underline-offset-4 hover:opacity-80 sm:text-[15px]">
+                    View Clinical Instruction
                   </button>
-                ))}
-              </div>
-            </div>
-            <textarea
-              rows={3}
-              readOnly={readOnly || isApprove}
-              value={interpretation}
-              onChange={(e) => setInterpretation(e.target.value)}
-              placeholder="Add interpretation, recommendations or notes…"
-              className="w-full rounded-md border border-border bg-surface p-3 text-sm outline-none focus:border-primary"
-            />
-          </div>
-
-          {/* Upload */}
-          <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary-soft text-primary">
-              <Upload className="h-5 w-5" />
-            </div>
-            <div className="mt-2 text-sm font-medium">Instrument Printout / Image</div>
-            <div className="text-xs text-muted-foreground">Drag &amp; drop or click — JPG, PNG, PDF, TIFF — max 10 MB</div>
-            {(isApprove || mode === "view") && (
-              <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-surface-muted px-3 py-2 text-xs">
-                <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                cbc-printout-2026.pdf · 248 KB
-                <button className="ml-2 text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Footer block */}
-          <div className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-border bg-surface-muted p-4 md:grid-cols-3">
-            <Field label={isApprove ? "Result Entered By" : "Entered By"}>
-              <select
-                value={enteredBy}
-                onChange={(e) => setEnteredBy(e.target.value)}
-                disabled={isApprove || readOnly}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none disabled:opacity-70"
-              >
-                {technicians.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Date">
-              <input
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                disabled={readOnly}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none"
-              />
-            </Field>
-            <Field label="Time">
-              <input
-                type="time"
-                defaultValue={new Date().toTimeString().slice(0, 5)}
-                disabled={readOnly}
-                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none"
-              />
-            </Field>
-          </div>
-
-          {isApprove && (
-            <div className="mt-4 rounded-xl border border-border p-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Approval
-              </div>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Field label="Approved By">
-                  <button className="flex w-full items-center justify-between rounded-md border border-border bg-surface px-3 py-2 text-sm">
-                    Dr. Anand K. <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </Field>
-                <Field label="Digital Signature">
-                  <button className="inline-flex w-full items-center gap-2 rounded-md border border-dashed border-border bg-surface px-3 py-2 text-sm text-muted-foreground hover:border-primary hover:text-primary">
-                    <PenLine className="h-4 w-4" /> Add Signature
-                  </button>
-                </Field>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-            <Link
-              to="/lims/orders/$orderId"
-              params={{ orderId: order.id }}
-              className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted"
-            >
-              Cancel
-            </Link>
-            {mode === "entry" && (
-              <>
-                <button className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-semibold hover:bg-muted">
-                  <Save className="h-4 w-4" /> Save Draft
-                </button>
-                <button className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
-                  <Send className="h-4 w-4" /> Save &amp; Submit
-                </button>
-              </>
-            )}
-            {isApprove && (
-              <>
-                <button className="inline-flex items-center gap-2 rounded-md border border-warning px-4 py-2 text-sm font-semibold text-[oklch(0.5_0.13_70)] hover:bg-warning-soft">
-                  <RotateCcw className="h-4 w-4" /> Return
-                </button>
-                <button className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90">
-                  <CheckCircle2 className="h-4 w-4" /> Approve Result
-                </button>
-              </>
-            )}
-            {mode === "view" && (
-              <Link
-                to="/lims/orders/$orderId/report/$testId"
-                params={{ orderId: order.id, testId }}
-                className="inline-flex items-center gap-2 rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:opacity-90"
-              >
-                <Eye className="h-4 w-4" /> Preview Report
-              </Link>
-            )}
-          </div>
-        </section>
-
-        <aside className="flex flex-col gap-4">
-          <div className="rounded-2xl border border-border bg-surface p-5">
-            <div className="text-sm font-semibold">Specimen</div>
-            <dl className="mt-3 space-y-2 text-sm">
-              <Row label="Type" value={test.specimen} />
-              <Row label="Department" value={test.department} />
-              <Row label="Container" value={test.container ?? "—"} />
-              <Row label="Code" value={<span className="font-mono text-xs">{test.code}</span>} />
-            </dl>
-          </div>
-          {isApprove && (
-            <div className="rounded-2xl border border-border bg-surface p-5">
-              <div className="text-sm font-semibold">Entered By</div>
-              <div className="mt-3 flex items-center gap-2">
-                <PatientAvatar name="Sreeja R" size={32} />
-                <div className="text-sm">
-                  <div className="font-medium">Tech. Sreeja R.</div>
-                  <div className="text-xs text-muted-foreground">17 Mar 2026, 09:14 AM</div>
                 </div>
               </div>
-            </div>
-          )}
-          <div className="rounded-2xl border border-info bg-info-soft p-4 text-info">
-            <div className="flex items-start gap-2 text-sm">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                Critical values trigger an automatic alert to the referring doctor once the result is submitted.
-              </p>
-            </div>
+
+              <div className="mt-5 space-y-3">
+                {baseParameters.map((parameter, index) => (
+                  <ResultValueCard
+                    key={parameter.parameter}
+                    index={index + 1}
+                    label={parameter.parameter}
+                    helper={`${parameter.unit} · Normal: ${parameter.rangeLow}-${parameter.rangeHigh}`}
+                    value={values[parameter.parameter] ?? ""}
+                    unit={parameter.unit}
+                    readOnly={readOnly || isApprove}
+                    simpleReadValue={isApprove || readOnly}
+                    onChange={(next) =>
+                      setValues((state) => ({ ...state, [parameter.parameter]: next }))
+                    }
+                  />
+                ))}
+
+                {extraFields.map((field, index) => (
+                  <SupplementaryCard
+                    key={field.id}
+                    field={field}
+                    index={baseParameters.length + index + 1}
+                    readOnly={readOnly}
+                    isApprove={isApprove}
+                    value={
+                      field.id === "clinicalInterpretation"
+                        ? interpretation
+                        : (values[field.id] ?? "")
+                    }
+                    onValueChange={(next) => {
+                      if (field.id === "clinicalInterpretation") {
+                        setInterpretation(next);
+                        return;
+                      }
+                      setValues((state) => ({ ...state, [field.id]: next }));
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {isEntry && (
+              <section className="rounded-[18px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5 lg:px-6">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_180px_180px]">
+                  <MetaField label="Entered By" required>
+                    <div className="flex h-12 items-center justify-between rounded-[16px] border border-border bg-surface px-4 text-[16px]">
+                      <span>{enteredBy}</span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </MetaField>
+                  <MetaField label="Date" required>
+                    <div className="flex h-12 items-center justify-between rounded-[16px] border border-border bg-surface px-4 text-[16px]">
+                      <span>17 - 03 - 2026</span>
+                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </MetaField>
+                  <MetaField label="Time" required>
+                    <div className="grid h-12 grid-cols-[1fr_24px_1fr_92px] overflow-hidden rounded-[16px] border border-border bg-surface text-[16px]">
+                      <div className="flex items-center justify-center">05</div>
+                      <div className="flex items-center justify-center">:</div>
+                      <div className="flex items-center justify-center">51</div>
+                      <div className="flex items-center justify-between border-l border-border bg-surface-muted px-4">
+                        <span>PM</span>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </MetaField>
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <Link
+                    to="/lims/orders/$orderId"
+                    params={{ orderId: order.id }}
+                    className="inline-flex h-14 min-w-[140px] items-center justify-center rounded-[18px] border border-border px-6 text-[18px] text-muted-foreground hover:bg-muted"
+                  >
+                    Cancel
+                  </Link>
+                  <button
+                    onClick={handleSubmit}
+                    className="inline-flex h-14 min-w-[220px] items-center justify-center gap-3 rounded-[18px] bg-primary px-8 text-[18px] font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    <Check className="h-5 w-5" />
+                    Save &amp; Submit
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {isApprove && (
+              <section className="rounded-[18px] border border-border bg-surface px-4 py-4 sm:px-5 sm:py-5 lg:px-6">
+                <div className="space-y-5">
+                  <div>
+                    <div className="text-[16px] text-muted-foreground">Result Entered By</div>
+                    <div className="mt-3 rounded-[16px] border border-border px-5 py-5">
+                      <div className="text-[18px] font-medium text-foreground">Tech. Sreeja R</div>
+                      <div className="mt-2 text-[16px] text-muted-foreground">
+                        31 - 03 - 2026 | 05 : 51 PM
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_180px_180px]">
+                    <MetaField label="Approved By" required>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setApprovedBy((current) =>
+                            current === "Dr. Rekha Suresh" ? "Dr. Anand K." : "Dr. Rekha Suresh",
+                          )
+                        }
+                        className="flex h-12 w-full items-center justify-between rounded-[16px] border border-border bg-surface px-4 text-[16px]"
+                      >
+                        <span>{approvedBy}</span>
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                    </MetaField>
+                    <MetaField label="Date" required>
+                      <div className="flex h-12 items-center justify-between rounded-[16px] border border-border bg-surface px-4 text-[16px]">
+                        <span>17 - 03 - 2026</span>
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </MetaField>
+                    <MetaField label="Time" required>
+                      <div className="grid h-12 grid-cols-[1fr_24px_1fr_92px] overflow-hidden rounded-[16px] border border-border bg-surface text-[16px]">
+                        <div className="flex items-center justify-center">05</div>
+                        <div className="flex items-center justify-center">:</div>
+                        <div className="flex items-center justify-center">51</div>
+                        <div className="flex items-center justify-between border-l border-border bg-surface-muted px-4">
+                          <span>PM</span>
+                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </MetaField>
+                  </div>
+
+                  <div className="flex flex-col gap-3 rounded-[18px] border border-transparent bg-surface sm:flex-row sm:items-center">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-[20px] border border-[oklch(0.89_0.07_310)] bg-[oklch(0.98_0.02_310)] text-[oklch(0.66_0.24_310)]">
+                      <FileImage className="h-10 w-10" />
+                    </div>
+                    <div>
+                      <div className="text-[18px] font-medium text-foreground">
+                        Digital Signature
+                      </div>
+                      <div className="mt-1 text-[16px] text-muted-foreground">{approvedBy}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      to="/lims/orders/$orderId"
+                      params={{ orderId: order.id }}
+                      className="inline-flex h-14 min-w-[150px] items-center justify-center rounded-[18px] border border-border px-6 text-[18px] text-muted-foreground hover:bg-muted"
+                    >
+                      Cancel
+                    </Link>
+                    <button
+                      onClick={handleReturn}
+                      className="inline-flex h-14 min-w-[180px] items-center justify-center rounded-[18px] border border-[oklch(0.84_0.09_20)] bg-[oklch(0.97_0.03_20)] px-6 text-[18px] font-medium text-[oklch(0.54_0.15_20)] hover:opacity-90"
+                    >
+                      Return
+                    </button>
+                    <button
+                      onClick={handleApprove}
+                      className="inline-flex h-14 min-w-[220px] items-center justify-center gap-3 rounded-[18px] bg-primary px-8 text-[18px] font-semibold text-primary-foreground hover:opacity-90"
+                    >
+                      <Check className="h-5 w-5" />
+                      Approve Result
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
           </div>
-        </aside>
+
+          <aside className="flex flex-col gap-3 sm:gap-4">
+            <section className="rounded-[18px] border border-border bg-surface p-0">
+              <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-5">
+                <div className="text-[16px] font-semibold text-foreground sm:text-[18px]">
+                  Patient
+                </div>
+                <button className="rounded-[16px] border border-border px-4 py-2 text-[14px] text-muted-foreground hover:bg-muted">
+                  View Profile
+                </button>
+              </div>
+              <div className="px-4 py-5 sm:px-5 sm:py-6">
+                <PatientCard patient={patient} />
+              </div>
+            </section>
+
+            {!isEntry && (
+              <section className="rounded-[18px] border border-border bg-surface px-4 py-4 text-[14px] text-muted-foreground sm:px-5">
+                <div className="flex items-start gap-2">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p>
+                    This view is read focused. Values, interpretation and file attachments are shown
+                    in the same visual order as the entry sheet.
+                  </p>
+                </div>
+              </section>
+            )}
+          </aside>
+        </div>
       </div>
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function ResultValueCard({
+  index,
+  label,
+  helper,
+  value,
+  unit,
+  readOnly,
+  simpleReadValue,
+  onChange,
+}: {
+  index: number;
+  label: string;
+  helper: string;
+  value: string;
+  unit?: string;
+  readOnly: boolean;
+  simpleReadValue: boolean;
+  onChange: (value: string) => void;
+}) {
   return (
-    <div>
-      <div className="mb-1.5 text-xs font-medium">{label}</div>
-      {children}
-    </div>
+    <section className="rounded-[18px] border border-border px-4 py-4 sm:px-5 sm:py-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-start gap-4">
+            <div className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-[oklch(0.95_0.01_90)] text-[13px] font-semibold text-[oklch(0.64_0.01_90)]">
+              {String(index).padStart(2, "0")}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[18px] font-semibold leading-tight text-foreground sm:text-[19px]">
+                {label}
+              </div>
+              <div className="mt-2 text-[15px] text-muted-foreground">{helper}</div>
+            </div>
+          </div>
+        </div>
+
+        {simpleReadValue ? (
+          <div className="flex items-end gap-4 self-start lg:self-center">
+            <div className="text-[22px] font-semibold leading-none text-foreground sm:text-[24px]">
+              {value || "-"}
+            </div>
+            <div className="text-[15px] text-muted-foreground">{unit}</div>
+          </div>
+        ) : (
+          <div className="flex w-full max-w-[340px] overflow-hidden rounded-[16px] border border-border lg:w-[340px]">
+            <input
+              inputMode="decimal"
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              readOnly={readOnly}
+              className="h-14 min-w-0 flex-1 bg-surface px-4 text-center text-[18px] outline-none"
+            />
+            <button
+              type="button"
+              className="flex h-14 min-w-[120px] items-center justify-between border-l border-border bg-surface-muted px-5 text-[16px] text-foreground"
+            >
+              <span>{unit}</span>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+function SupplementaryCard({
+  field,
+  index,
+  readOnly,
+  isApprove,
+  value,
+  onValueChange,
+}: {
+  field: SupplementaryField;
+  index: number;
+  readOnly: boolean;
+  isApprove: boolean;
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium text-foreground">{value}</dd>
+    <section className="rounded-[18px] border border-border px-4 py-4 sm:px-5 sm:py-5">
+      <div className="flex items-start gap-4">
+        <div className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-[oklch(0.95_0.01_90)] text-[13px] font-semibold text-[oklch(0.64_0.01_90)]">
+          {String(index).padStart(2, "0")}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[18px] font-semibold leading-tight text-foreground sm:text-[19px]">
+            {field.label}
+          </div>
+          <div className="mt-2 text-[15px] text-muted-foreground">{field.helper}</div>
+
+          {field.kind === "select" && (
+            <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              {isApprove || readOnly ? (
+                <div className="ml-auto font-mono text-[20px] font-semibold text-foreground">
+                  {value || "-"}
+                </div>
+              ) : (
+                <div className="ml-auto flex w-full max-w-[500px] overflow-hidden rounded-[16px] border border-border">
+                  <button
+                    type="button"
+                    className="flex h-14 min-w-0 flex-1 items-center justify-between bg-surface px-5 text-[18px]"
+                  >
+                    <span className={cn(!value && "text-muted-foreground")}>
+                      {value || field.choices?.[0] || "Select"}
+                    </span>
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  </button>
+                  {field.unit && (
+                    <button
+                      type="button"
+                      className="flex h-14 min-w-[130px] items-center justify-between border-l border-border bg-surface-muted px-5 text-[16px]"
+                    >
+                      <span>{field.unit}</span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {field.kind === "textarea" && (
+            <div className="mt-4 overflow-hidden rounded-[18px] border border-border">
+              <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 text-[15px]">
+                <span className="font-semibold">B</span>
+                <span>/</span>
+                <span>•</span>
+                <span>1.</span>
+                {!isApprove &&
+                  quickInterpretations.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => onValueChange(value ? `${value}\n${item}` : item)}
+                      className="rounded-full border border-border px-3 py-1 text-[13px] text-muted-foreground hover:border-primary hover:text-primary"
+                    >
+                      {item}
+                    </button>
+                  ))}
+              </div>
+              {isApprove || readOnly ? (
+                <div className="min-h-[160px] px-4 py-5 text-[16px] leading-7 text-foreground">
+                  {value || "-"}
+                </div>
+              ) : (
+                <textarea
+                  value={value}
+                  onChange={(event) => onValueChange(event.target.value)}
+                  rows={5}
+                  placeholder="Enter clinical interpretation, remarks, or observations..."
+                  className="min-h-[160px] w-full resize-none px-4 py-5 text-[16px] outline-none"
+                />
+              )}
+              <div className="border-t border-border px-4 py-2 text-[13px] text-muted-foreground">
+                <span className="text-success">0 words</span>
+                <span className="ml-4">Tab = indent · Ctrl+Z = undo</span>
+              </div>
+            </div>
+          )}
+
+          {field.kind === "file" && (
+            <div className="mt-4">
+              {isApprove || readOnly ? (
+                <div className="rounded-[18px] bg-[oklch(0.97_0.01_90)] px-5 py-5">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-[14px] bg-surface text-muted-foreground">
+                      <Folder className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <div className="text-[18px] font-medium text-foreground">Image</div>
+                      <div className="mt-1 text-[16px] text-muted-foreground">36 KB | PNG</div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-[18px] border-2 border-dashed border-[oklch(0.86_0.01_90)] bg-[oklch(0.97_0.01_90)] px-5 py-10 text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-surface text-muted-foreground">
+                    <Upload className="h-6 w-6" />
+                  </div>
+                  <div className="mt-4 text-[18px] font-medium text-foreground">
+                    Drop files or click to upload
+                  </div>
+                  <div className="mt-2 text-[16px] text-muted-foreground">
+                    JPG, PNG, PDF, TIFF · Max 10 MB
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MetaField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-[15px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+        {label}
+        {required && <span className="ml-1 text-danger">*</span>}
+      </div>
+      {children}
     </div>
   );
 }
