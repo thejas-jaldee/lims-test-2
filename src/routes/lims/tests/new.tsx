@@ -1,15 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
-  ArrowLeft,
   Beaker,
   ChevronDown,
   ClipboardList,
-  FileText,
   GripVertical,
   Plus,
   Search,
-  Tag,
   Trash2,
   Wallet,
 } from "lucide-react";
@@ -31,6 +28,13 @@ export const Route = createFileRoute("/lims/tests/new")({
 });
 
 type IconTone = "blue" | "orange" | "teal" | "purple";
+type PriceRow = {
+  id: string;
+  store: string;
+  catalog: string;
+  price: string;
+  tax: string;
+};
 
 const iconToneClass: Record<IconTone, string> = {
   blue: "bg-[#eaf1ff] text-[#2f6fed]",
@@ -52,10 +56,15 @@ function CreateTestPage() {
   const [paramModal, setParamModal] = useState(false);
   const [clinicalOpen, setClinicalOpen] = useState(false);
   const [editingParam, setEditingParam] = useState<TestParameter | null>(null);
+  const [labels, setLabels] = useState<string[]>([]);
+  const [collectionInstructions, setCollectionInstructions] = useState<string[]>([]);
+  const [prices, setPrices] = useState<PriceRow[]>([
+    { id: "price-1", store: "Lab A", catalog: "Catalog 1", price: "5000", tax: "GST 18%" },
+  ]);
 
   return (
     <div className="min-h-full bg-[#f4f5f7] pb-5 text-[#111827]">
-            <PageHeader title="Create New Test" backTo="/lims/tests" />
+      <PageHeader title="Create New Test" backTo="/lims/tests" />
 
       <div className="mx-auto flex w-full max-w-[1680px] flex-col gap-4 px-3 py-4 sm:px-4 lg:px-5">
         {/* <header className="flex min-h-10 items-center gap-2">
@@ -105,11 +114,36 @@ function CreateTestPage() {
                 <Plus className="h-3.5 w-3.5" />
                 Clinical description
               </GhostButton>
-              <GhostButton>
+              <GhostButton
+                onClick={() => setLabels((items) => [...items, `Label ${items.length + 1}`])}
+              >
                 <Plus className="h-3.5 w-3.5" />
                 Label
               </GhostButton>
             </GhostActions>
+
+            {labels.length > 0 && (
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {labels.map((label, index) => (
+                  <RemovableField
+                    key={index}
+                    label={`Label ${index + 1}`}
+                    onRemove={() => setLabels((items) => items.filter((_, i) => i !== index))}
+                  >
+                    <input
+                      className={fieldInputClass}
+                      value={label}
+                      onChange={(event) =>
+                        setLabels((items) =>
+                          items.map((item, i) => (i === index ? event.target.value : item)),
+                        )
+                      }
+                      placeholder="Enter label"
+                    />
+                  </RemovableField>
+                ))}
+              </div>
+            )}
           </LimsCard>
 
           <LimsCard title="Specimen & Processing" icon={Beaker} tone="orange">
@@ -129,11 +163,43 @@ function CreateTestPage() {
             </FormGrid>
 
             <GhostActions>
-              <GhostButton>
+              <GhostButton
+                onClick={() =>
+                  setCollectionInstructions((items) => [
+                    ...items,
+                    items.length === 0 ? "Fasting sample preferred" : "",
+                  ])
+                }
+              >
                 <Plus className="h-3.5 w-3.5" />
                 Collection Instruction
               </GhostButton>
             </GhostActions>
+
+            {collectionInstructions.length > 0 && (
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                {collectionInstructions.map((instruction, index) => (
+                  <RemovableField
+                    key={index}
+                    label={`Collection Instruction ${index + 1}`}
+                    onRemove={() =>
+                      setCollectionInstructions((items) => items.filter((_, i) => i !== index))
+                    }
+                  >
+                    <textarea
+                      className={cn(fieldInputClass, "min-h-[86px] resize-y py-2 leading-5")}
+                      value={instruction}
+                      onChange={(event) =>
+                        setCollectionInstructions((items) =>
+                          items.map((item, i) => (i === index ? event.target.value : item)),
+                        )
+                      }
+                      placeholder="Enter collection instruction"
+                    />
+                  </RemovableField>
+                ))}
+              </div>
+            )}
           </LimsCard>
 
           <LimsCard
@@ -209,23 +275,75 @@ function CreateTestPage() {
           </LimsCard>
 
           <LimsCard title="Pricing" icon={Wallet} tone="purple">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <Field label="Select Store">
-                <SelectInput options={["Lab A", "Main Lab", "Branch - Kochi"]} />
-              </Field>
-              <Field label="Catalog">
-                <SelectInput options={["Catalog 1", "Standard", "Premium"]} />
-              </Field>
-              <Field label={"Price (\u20B9)"}>
-                <input className={fieldInputClass} defaultValue="5000" />
-              </Field>
-              <Field label="TAX">
-                <SelectInput options={["GST 18%", "GST 5%", "None"]} />
-              </Field>
+            <div className="flex flex-col gap-4">
+              {prices.map((priceRow, index) => (
+                <div
+                  key={priceRow.id}
+                  className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_36px]"
+                >
+                  <Field label="Select Store">
+                    <SelectInput
+                      options={["Lab A", "Main Lab", "Branch - Kochi"]}
+                      value={priceRow.store}
+                      onChange={(store) => updatePriceRow(priceRow.id, { store })}
+                    />
+                  </Field>
+                  <Field label="Catalog">
+                    <SelectInput
+                      options={["Catalog 1", "Standard", "Premium"]}
+                      value={priceRow.catalog}
+                      onChange={(catalog) => updatePriceRow(priceRow.id, { catalog })}
+                    />
+                  </Field>
+                  <Field label={"Price (\u20B9)"}>
+                    <input
+                      className={fieldInputClass}
+                      value={priceRow.price}
+                      onChange={(event) =>
+                        updatePriceRow(priceRow.id, { price: event.target.value })
+                      }
+                      inputMode="decimal"
+                    />
+                  </Field>
+                  <Field label="TAX">
+                    <SelectInput
+                      options={["GST 18%", "GST 5%", "None"]}
+                      value={priceRow.tax}
+                      onChange={(tax) => updatePriceRow(priceRow.id, { tax })}
+                    />
+                  </Field>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPrices((items) => items.filter((item) => item.id !== priceRow.id))
+                      }
+                      disabled={prices.length === 1}
+                      className="flex h-[38px] w-[36px] items-center justify-center rounded-[6px] border border-[#ffb4b8] bg-white text-[#ff5a5f] hover:bg-[#fff1f2] disabled:cursor-not-allowed disabled:border-[#dfe5ec] disabled:text-[#98a2b3] disabled:hover:bg-white"
+                      aria-label={`Remove price ${index + 1}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <GhostActions>
-              <GhostButton>
+              <GhostButton
+                onClick={() =>
+                  setPrices((items) => [
+                    ...items,
+                    {
+                      id: `price-${Date.now()}`,
+                      store: "Lab A",
+                      catalog: "Catalog 1",
+                      price: "",
+                      tax: "GST 18%",
+                    },
+                  ])
+                }
+              >
                 <Plus className="h-3.5 w-3.5" />
                 Another Price
               </GhostButton>
@@ -267,6 +385,10 @@ function CreateTestPage() {
       <ClinicalDescriptionModal open={clinicalOpen} onClose={() => setClinicalOpen(false)} />
     </div>
   );
+
+  function updatePriceRow(id: string, next: Partial<PriceRow>) {
+    setPrices((items) => items.map((item) => (item.id === id ? { ...item, ...next } : item)));
+  }
 }
 
 function LimsCard({
@@ -333,10 +455,22 @@ function Field({
   );
 }
 
-function SelectInput({ options }: { options: string[] }) {
+function SelectInput({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value?: string;
+  onChange?: (value: string) => void;
+}) {
   return (
     <div className="relative">
-      <select className={cn(fieldInputClass, "appearance-none pr-9")}>
+      <select
+        className={cn(fieldInputClass, "appearance-none pr-9")}
+        value={value}
+        onChange={(event) => onChange?.(event.target.value)}
+      >
         {options.map((option) => (
           <option key={option}>{option}</option>
         ))}
@@ -353,10 +487,38 @@ function GhostActions({ children }: { children: ReactNode }) {
 function GhostButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className="inline-flex h-[30px] items-center gap-1 rounded-[5px] bg-[#e1f3ef] px-3 text-[12px] font-semibold text-[#006c5b] hover:bg-[#d4ece7]"
     >
       {children}
     </button>
+  );
+}
+
+function RemovableField({
+  label,
+  onRemove,
+  children,
+}: {
+  label: string;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[12px] font-semibold leading-4 text-[#344054]">{label}</span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="flex h-6 w-6 items-center justify-center rounded-[5px] text-[#ff5a5f] hover:bg-[#fff1f2]"
+          aria-label={`Remove ${label}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      {children}
+    </div>
   );
 }
