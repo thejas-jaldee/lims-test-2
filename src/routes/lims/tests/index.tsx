@@ -543,7 +543,7 @@ function RowActions({
           <Button
             variant="outline"
             size="icon"
-            className="h-[40px] w-[40px] rounded-[5px] border-[#dae0e6] text-[#475467] shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+            className="h-[40px] w-[40px] min-w-[40px] rounded-[5px] border-[#dae0e6] text-[#475467] shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
             aria-label={`Open actions for ${label}`}
           >
             <MoreHorizontal className="h-[19px] w-[19px]" />
