@@ -172,7 +172,7 @@ function ResultEntryPage() {
   const subtitle = `${order.number} · ${patient.name} · ${patient.age} yr ${patient.gender} · ${test.specimen}`;
 
   return (
-    <div className="origin-top-left w-[142.86%] [zoom:0.7]">
+    <div className="origin-top-left w-[99.65%] ">
       <PageHeader
         title={isApprove ? "Approve Result" : readOnly ? "Result Preview" : "Result Entry"}
         backTo="/lims/orders/$orderId"
