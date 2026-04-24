@@ -10,6 +10,10 @@ interface ModalProps {
   footer?: ReactNode;
   width?: "sm" | "md" | "lg" | "xl" | "2xl";
   className?: string;
+  headerClassName?: string;
+  bodyClassName?: string;
+  footerClassName?: string;
+  closeClassName?: string;
 }
 
 const widths = {
@@ -20,7 +24,19 @@ const widths = {
   "2xl": "max-w-5xl",
 };
 
-export function Modal({ open, onClose, title, children, footer, width = "lg", className }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  width = "lg",
+  className,
+  headerClassName,
+  bodyClassName,
+  footerClassName,
+  closeClassName,
+}: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -34,7 +50,7 @@ export function Modal({ open, onClose, title, children, footer, width = "lg", cl
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-foreground/40 backdrop-blur-[2px]" onClick={onClose} />
       <div
         className={cn(
@@ -44,16 +60,29 @@ export function Modal({ open, onClose, title, children, footer, width = "lg", cl
         )}
       >
         {title && (
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div
+            className={cn(
+              "flex items-center justify-between border-b border-border px-5 py-4",
+              headerClassName,
+            )}
+          >
             <div className="text-base font-semibold">{title}</div>
-            <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-muted">
+            <button
+              onClick={onClose}
+              className={cn("rounded-md p-1 text-muted-foreground hover:bg-muted", closeClassName)}
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
-        <div className="max-h-[70vh] overflow-y-auto">{children}</div>
+        <div className={cn("max-h-[70vh] overflow-y-auto", bodyClassName)}>{children}</div>
         {footer && (
-          <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-muted px-5 py-3">
+          <div
+            className={cn(
+              "flex items-center justify-end gap-2  border-border  px-5 py-3",
+              footerClassName,
+            )}
+          >
             {footer}
           </div>
         )}

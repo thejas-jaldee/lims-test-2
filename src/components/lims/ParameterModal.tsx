@@ -1,13 +1,49 @@
-import { useState } from "react";
-import { Plus, X, Calculator } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Plus,
+  X,
+  Search,
+  GripVertical,
+  Undo2,
+  Redo2,
+  Bold,
+  Italic,
+  Minus,
+  AlignLeft,
+  AlignCenter,
+  Image as ImageIcon,
+  Table as TableIcon,
+  MoreHorizontal,
+  ChevronDown,
+} from "lucide-react";
 import { Modal } from "./Modal";
 import { type ParameterType, type TestParameter } from "@/data/lims";
 import { cn } from "@/lib/utils";
+
+/* ---------- types ---------- */
+
+type Gender = "All" | "Male" | "Female";
+type RangeType = "Range" | "Less-than" | "Greater-than";
+
+interface RefRange {
+  id: string;
+  gender: Gender;
+  ageFrom: string;
+  ageTo: string;
+  type: RangeType;
+  min: string;
+  max: string;
+  value: string;
+  label: string;
+}
 
 interface Props {
   open: boolean;
   onClose: () => void;
   onSave: (p: TestParameter) => void;
+  initial?: TestParameter | null;
+  /** test components available for the formula builder */
+  components?: { code: string; name: string }[];
 }
 
 const types: { key: ParameterType; label: string }[] = [
@@ -18,41 +54,98 @@ const types: { key: ParameterType; label: string }[] = [
   { key: "file", label: "File/Image Upload" },
 ];
 
-export function ParameterModal({ open, onClose, onSave }: Props) {
+const defaultComponents = [
+  { code: "HB", name: "Haemoglobin" },
+  { code: "RBC", name: "RBC" },
+  { code: "HCT", name: "Hematocrit" },
+  { code: "MCV", name: "MCV" },
+];
+
+const newRange = (): RefRange => ({
+  id: `r${Date.now()}${Math.random().toString(36).slice(2, 6)}`,
+  gender: "All",
+  ageFrom: "",
+  ageTo: "",
+  type: "Range",
+  min: "",
+  max: "",
+  value: "",
+  label: "",
+});
+
+/* ---------- main ---------- */
+
+export function ParameterModal({ open, onClose, onSave, initial, components = defaultComponents }: Props) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [type, setType] = useState<ParameterType>("numeric");
+
   const [unit, setUnit] = useState("");
   const [units, setUnits] = useState<string[]>([]);
-  const [options, setOptions] = useState<string[]>([]);
-  const [optionInput, setOptionInput] = useState("");
-  const [multi, setMulti] = useState(false);
+
+  // numeric
   const [allowDecimal, setAllowDecimal] = useState(true);
   const [allowNeg, setAllowNeg] = useState(false);
-  const [min, setMin] = useState("");
-  const [max, setMax] = useState("");
-  const [ranges, setRanges] = useState<Array<{ gender: string; from: string; to: string; type: string; value: string; label: string }>>([]);
-  const [formula, setFormula] = useState("");
-  const [allowed, setAllowed] = useState<Record<string, boolean>>({ PDF: true, JPG: true, PNG: false, Word: false });
-  const [rt, setRt] = useState("");
+  const [ranges, setRanges] = useState<RefRange[]>([]);
 
-  const reset = () => {
-    setName(""); setCode(""); setType("numeric"); setUnit(""); setUnits([]); setOptions([]);
-    setMulti(false); setAllowDecimal(true); setAllowNeg(false); setMin(""); setMax(""); setRanges([]);
-    setFormula(""); setRt("");
+  // dropdown
+  const [multi, setMulti] = useState(false);
+  const [optionInput, setOptionInput] = useState("");
+  const [options, setOptions] = useState<string[]>([]);
+
+  // descriptive
+  const [descHtml, setDescHtml] = useState("");
+
+  // formula
+  const [formula, setFormula] = useState("");
+
+  // file
+  const [allowed, setAllowed] = useState<Record<string, boolean>>({ PDF: true, JPG: false, PNG: false, Word: false });
+  const [maxSize, setMaxSize] = useState("10");
+
+  /* prefill on open / when initial changes */
+  useEffect(() => {
+    if (!open) return;
+    if (initial) {
+      setName(initial.name ?? "");
+      setCode(initial.code ?? "");
+      setType(initial.type ?? "numeric");
+      setUnits(initial.unit ? [initial.unit] : []);
+    } else {
+      setName(""); setCode(""); setType("numeric");
+      setUnit(""); setUnits([]);
+      setAllowDecimal(true); setAllowNeg(false); setRanges([newRange()]);
+      setMulti(false); setOptionInput(""); setOptions([]);
+      setDescHtml(""); setFormula("");
+      setAllowed({ PDF: true, JPG: false, PNG: false, Word: false });
+      setMaxSize("10");
+    }
+  }, [open, initial]);
+
+  const titleLabel = useMemo(() => "Create Parameter", []);
+
+  const addUnit = () => {
+    const v = unit.trim();
+    if (!v || units.includes(v)) { setUnit(""); return; }
+    setUnits((arr) => [...arr, v]);
+    setUnit("");
+  };
+  const addOption = () => {
+    const v = optionInput.trim();
+    if (!v || options.includes(v)) { setOptionInput(""); return; }
+    setOptions((arr) => [...arr, v]);
+    setOptionInput("");
   };
 
   const handleSave = () => {
-    if (!name) return;
+    if (!name.trim()) return;
     onSave({
-      id: `P${Date.now()}`,
-      code: code || name.slice(0, 3).toUpperCase(),
-      name,
+      id: initial?.id ?? `P${Date.now()}`,
+      code: code.trim() || name.slice(0, 3).toUpperCase(),
+      name: name.trim(),
       type,
-      unit: units[0] ?? unit,
-      range: type === "numeric" && min && max ? { low: Number(min), high: Number(max) } : undefined,
+      unit: units[0],
     });
-    reset();
     onClose();
   };
 
@@ -60,233 +153,476 @@ export function ParameterModal({ open, onClose, onSave }: Props) {
     <Modal
       open={open}
       onClose={onClose}
-      title={`Create Parameter — ${types.find((t) => t.key === type)?.label}`}
-      width="xl"
+      title={titleLabel}
+      width="2xl"
       footer={
         <>
-          <button onClick={onClose} className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-muted">Cancel</button>
-          <button onClick={handleSave} className="rounded-md bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground">Save</button>
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-muted px-6 py-2.5 text-sm font-semibold text-foreground hover:bg-border"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="rounded-lg bg-primary px-8 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            Save
+          </button>
         </>
       }
     >
-      <div className="space-y-5 p-5">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Field label="Parameter Name *">
-            <input value={name} onChange={(e) => setName(e.target.value)} className="input" />
+      <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-7">
+        {/* common fields */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[1.6fr_1fr_1fr]">
+          <Field label="Parameter Name">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Hemoglobin"
+                className="pm-input pm-input-with-icon"
+              />
+            </div>
           </Field>
           <Field label="Code">
-            <input value={code} onChange={(e) => setCode(e.target.value)} className="input" />
+            <input value={code} onChange={(e) => setCode(e.target.value)} className="pm-input" placeholder="HGB" />
           </Field>
           <Field label="Type">
-            <select value={type} onChange={(e) => setType(e.target.value as ParameterType)} className="input">
-              {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-            </select>
+            <div className="relative">
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as ParameterType)}
+                className="pm-input appearance-none pr-9"
+              >
+                {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
           </Field>
         </div>
 
-        {/* Numeric */}
+        {/* type-specific */}
+        {(type === "numeric" || type === "formula" || type === "dropdown") && type !== "dropdown" && (
+          <UnitField unit={unit} setUnit={setUnit} units={units} setUnits={setUnits} addUnit={addUnit} />
+        )}
+
         {type === "numeric" && (
           <>
-            <UnitsField unit={unit} setUnit={setUnit} units={units} setUnits={setUnits} />
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Min Value"><input value={min} onChange={(e) => setMin(e.target.value)} className="input" /></Field>
-              <Field label="Max Value"><input value={max} onChange={(e) => setMax(e.target.value)} className="input" /></Field>
+            <div className="flex flex-wrap gap-x-12 gap-y-4">
+              <ToggleRow
+                label="Allow Negative Values"
+                hint="Permit results below zero"
+                on={allowNeg}
+                setOn={setAllowNeg}
+              />
+              <ToggleRow
+                label="Allow Decimal Values"
+                hint="Support floating point data"
+                on={allowDecimal}
+                setOn={setAllowDecimal}
+              />
             </div>
-            <div className="flex flex-wrap gap-6">
-              <Toggle label="Allow Decimal Values" on={allowDecimal} setOn={setAllowDecimal} />
-              <Toggle label="Allow Negative Values" on={allowNeg} setOn={setAllowNeg} />
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-semibold">Reference Ranges</div>
+
+            <div>
+              <div className="mb-2 text-xs font-bold uppercase tracking-wider text-foreground">Reference Range</div>
+              <div className="rounded-xl bg-surface-muted p-4 sm:p-5">
+                <div className="space-y-5">
+                  {ranges.map((r) => (
+                    <RangeRow
+                      key={r.id}
+                      r={r}
+                      onChange={(patch) => setRanges((arr) => arr.map((x) => (x.id === r.id ? { ...x, ...patch } : x)))}
+                      onRemove={() => setRanges((arr) => arr.filter((x) => x.id !== r.id))}
+                    />
+                  ))}
+                </div>
                 <button
-                  onClick={() => setRanges((arr) => [...arr, { gender: "All", from: "0", to: "100", type: "Range", value: "", label: "Normal" }])}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary"
+                  type="button"
+                  onClick={() => setRanges((arr) => [...arr, newRange()])}
+                  className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-surface px-3.5 py-2 text-xs font-semibold text-primary hover:bg-primary-soft"
                 >
-                  <Plus className="h-3 w-3" /> New Range
+                  <Plus className="h-3.5 w-3.5" /> Add Range
                 </button>
               </div>
-              {ranges.length === 0 && <div className="py-3 text-center text-xs text-muted-foreground">No ranges added.</div>}
-              {ranges.map((r, i) => (
-                <div key={i} className="mt-2 grid grid-cols-12 gap-2 text-xs">
-                  <select className="input col-span-2" defaultValue={r.gender}><option>All</option><option>Male</option><option>Female</option></select>
-                  <input className="input col-span-2" placeholder="Age from" defaultValue={r.from} />
-                  <input className="input col-span-2" placeholder="Age to" defaultValue={r.to} />
-                  <select className="input col-span-2" defaultValue={r.type}><option>Range</option><option>Less than</option><option>Greater than</option></select>
-                  <input className="input col-span-2" placeholder="Value" defaultValue={r.value} />
-                  <input className="input col-span-1" placeholder="Label" defaultValue={r.label} />
-                  <button onClick={() => setRanges((arr) => arr.filter((_, k) => k !== i))} className="col-span-1 inline-flex items-center justify-center rounded-md border border-border text-danger hover:bg-danger-soft">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                  <div className="col-span-12 px-1 italic text-muted-foreground">
-                    Preview: {r.gender}, age {r.from}-{r.to}: {r.type === "Range" ? `${min}–${max}` : `${r.type} ${r.value}`} → <span className="text-foreground">{r.label}</span>
-                  </div>
-                </div>
-              ))}
             </div>
           </>
         )}
 
-        {/* Dropdown */}
         {type === "dropdown" && (
           <>
-            <Toggle label="Allow Multi Selection" on={multi} setOn={setMulti} />
-            <UnitsField unit={unit} setUnit={setUnit} units={units} setUnits={setUnits} />
-            <Field label="Dropdown Options">
+            <ToggleRow
+              label="Allow Multi Selection"
+              hint="allow users to select multiple options from a dropdown"
+              on={multi}
+              setOn={setMulti}
+            />
+            <UnitField
+              unit={unit}
+              setUnit={setUnit}
+              units={units}
+              setUnits={setUnits}
+              addUnit={addUnit}
+              placeholder="Enter the unit and Click add button"
+            />
+            <div>
+              <div className="mb-2 text-sm font-bold text-primary">Dropdown Options</div>
               <div className="flex gap-2">
                 <input
                   value={optionInput}
                   onChange={(e) => setOptionInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && optionInput.trim()) {
-                      setOptions((arr) => [...arr, optionInput.trim()]);
-                      setOptionInput("");
-                    }
-                  }}
-                  placeholder="Type and press Enter…"
-                  className="input flex-1"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOption(); } }}
+                  placeholder="Type an option and press Enter"
+                  className="pm-input flex-1"
                 />
-                <button
-                  onClick={() => {
-                    if (optionInput.trim()) {
-                      setOptions((arr) => [...arr, optionInput.trim()]);
-                      setOptionInput("");
-                    }
-                  }}
-                  className="rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground"
-                >
+                <button onClick={addOption} className="rounded-lg bg-foreground px-6 text-sm font-semibold text-background hover:opacity-90">
                   Enter
                 </button>
               </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {options.map((o, i) => (
-                  <span key={i} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-medium text-primary">
+                  <span key={i} className="inline-flex items-center gap-2 rounded-lg bg-primary-soft px-3 py-1.5 text-sm font-medium text-primary-soft-foreground">
+                    <GripVertical className="h-3.5 w-3.5 opacity-60" />
                     {o}
-                    <button onClick={() => setOptions((arr) => arr.filter((_, k) => k !== i))}>
-                      <X className="h-3 w-3" />
+                    <button onClick={() => setOptions((arr) => arr.filter((_, k) => k !== i))} className="opacity-70 hover:opacity-100">
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </span>
                 ))}
               </div>
-            </Field>
-            <div className="rounded-lg border border-border p-3">
-              <div className="mb-2 text-sm font-semibold">Applicability</div>
-              <div className="grid grid-cols-3 gap-2">
-                <select className="input"><option>All Genders</option><option>Male</option><option>Female</option></select>
-                <input className="input" placeholder="Age (from)" />
-                <input className="input" placeholder="Age (to)" />
-              </div>
-              <button className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">
-                <Plus className="h-3 w-3" /> New Range
-              </button>
             </div>
           </>
         )}
 
-        {/* Descriptive */}
         {type === "descriptive" && (
-          <Field label="Default Template">
-            <textarea value={rt} onChange={(e) => setRt(e.target.value)} rows={6} className="input !h-auto py-2" placeholder="Free-text observation template…" />
-          </Field>
+          <div className="rounded-xl border border-border bg-surface">
+            <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-2 text-muted-foreground">
+              <ToolBtn><Undo2 className="h-4 w-4" /></ToolBtn>
+              <ToolBtn><Redo2 className="h-4 w-4" /></ToolBtn>
+              <Divider />
+              <button className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-muted">Paragraph <ChevronDown className="h-3 w-3" /></button>
+              <Divider />
+              <ToolBtn><Minus className="h-4 w-4" /></ToolBtn>
+              <span className="px-2 text-xs">14px</span>
+              <ToolBtn><Plus className="h-4 w-4" /></ToolBtn>
+              <Divider />
+              <ToolBtn><Bold className="h-4 w-4" /></ToolBtn>
+              <ToolBtn><Italic className="h-4 w-4" /></ToolBtn>
+              <button className="inline-flex items-center rounded-md px-1.5 py-1 hover:bg-muted">
+                <span className="text-sm font-bold">A</span><ChevronDown className="h-3 w-3" />
+              </button>
+              <button className="inline-flex items-center rounded-md px-1.5 py-1 hover:bg-muted">
+                <span className="text-sm">🖍</span><ChevronDown className="h-3 w-3" />
+              </button>
+              <Divider />
+              <ToolBtn><AlignLeft className="h-4 w-4" /></ToolBtn>
+              <ToolBtn><AlignCenter className="h-4 w-4" /></ToolBtn>
+              <ToolBtn><TableIcon className="h-4 w-4" /></ToolBtn>
+              <ToolBtn><ImageIcon className="h-4 w-4" /></ToolBtn>
+              <ToolBtn><MoreHorizontal className="h-4 w-4" /></ToolBtn>
+            </div>
+            <div
+              contentEditable
+              suppressContentEditableWarning
+              onInput={(e) => setDescHtml((e.target as HTMLElement).innerHTML)}
+              className="min-h-[280px] px-4 py-3 text-sm outline-none"
+              data-placeholder="Enter clinical interpretation, remarks, or observations…"
+              dangerouslySetInnerHTML={{ __html: descHtml }}
+            />
+          </div>
         )}
 
-        {/* Formula */}
         {type === "formula" && (
-          <>
-            <UnitsField unit={unit} setUnit={setUnit} units={units} setUnits={setUnits} />
-            <Field label="Formula">
-              <div className="flex gap-2">
-                <input value={formula} onChange={(e) => setFormula(e.target.value)} className="input flex-1 font-mono" placeholder="e.g. (Hb / Hct) * 100" />
-                <button className="rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground">Enter</button>
+          <div>
+            <div className="mb-2 text-sm font-bold text-primary">Formula Builder</div>
+            <div className="flex gap-2">
+              <input
+                value={formula}
+                onChange={(e) => setFormula(e.target.value)}
+                placeholder="( Hemoglobin × 10 ) ÷ RBC"
+                className="pm-input flex-1 font-medium"
+              />
+              <button className="rounded-lg bg-primary px-6 text-sm font-semibold text-primary-foreground hover:opacity-90">
+                Enter
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {[
+                { label: "+", v: " + " },
+                { label: "-", v: " - " },
+                { label: "÷", v: " ÷ " },
+                { label: "×", v: " × " },
+                { label: "10^2", v: "^2" },
+                { label: "(", v: " ( " },
+                { label: ")", v: " ) " },
+              ].map((op) => (
+                <button
+                  key={op.label}
+                  onClick={() => setFormula((f) => f + op.v)}
+                  className="h-10 min-w-[3rem] rounded-lg border border-border bg-surface px-3 text-sm font-semibold shadow-[var(--shadow-card)] hover:bg-muted"
+                >
+                  {op.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 text-sm font-medium text-foreground">Available Test Components in this test</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {components.map((c) => (
+                <button
+                  key={c.code}
+                  onClick={() => setFormula((f) => `${f}${f && !f.endsWith(" ") ? " " : ""}${c.name} `)}
+                  className="rounded-lg bg-primary-soft px-4 py-2 text-sm font-medium text-primary-soft-foreground hover:opacity-90"
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 rounded-xl bg-surface-muted px-5 py-5">
+              <div className="text-sm text-muted-foreground">Preview Result</div>
+              <div className="mt-3 font-serif text-xl italic text-foreground">
+                {formula ? <FormulaPreview code={code || "RESULT"} expr={formula} /> : <span className="text-muted-foreground/70">—</span>}
               </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {["+", "-", "×", "÷", "^", "(", ")"].map((op) => (
-                  <button key={op} onClick={() => setFormula((f) => f + ` ${op} `)} className="h-8 w-8 rounded-md border border-border bg-surface text-sm font-semibold hover:bg-muted">
-                    {op}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-3 text-xs font-medium text-muted-foreground">Available Test Components</div>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {["HB", "HCT", "RBC", "MCV", "MCH"].map((c) => (
-                  <button key={c} onClick={() => setFormula((f) => f + ` ${c} `)} className="rounded-full border border-border px-2.5 py-0.5 text-xs font-mono hover:border-primary hover:text-primary">
-                    {c}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-3 rounded-md border border-dashed border-border bg-surface-muted p-3 text-xs">
-                <div className="flex items-center gap-1 text-muted-foreground"><Calculator className="h-3 w-3" /> Preview Result</div>
-                <div className="mt-1 font-mono">{formula || "—"}</div>
-              </div>
-            </Field>
-          </>
+            </div>
+          </div>
         )}
 
-        {/* File */}
         {type === "file" && (
           <>
-            <Field label="Allowed File Types">
-              <div className="flex flex-wrap gap-3">
+            <div>
+              <div className="mb-3 text-base font-semibold">Allowed File Types</div>
+              <div className="space-y-3">
                 {Object.keys(allowed).map((k) => (
-                  <label key={k} className="inline-flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={allowed[k]} onChange={(e) => setAllowed((a) => ({ ...a, [k]: e.target.checked }))} className="h-4 w-4 accent-primary" />
-                    {k}
+                  <label key={k} className="flex cursor-pointer items-center gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={allowed[k]}
+                      onChange={(e) => setAllowed((a) => ({ ...a, [k]: e.target.checked }))}
+                      className="h-5 w-5 accent-primary"
+                    />
+                    <span className="font-medium">{k}</span>
                   </label>
                 ))}
               </div>
-            </Field>
-            <Field label="Maximum File Size (MB)">
-              <input className="input" defaultValue="10" />
+            </div>
+            <Field label="Maximum File Size (MB)" labelClass="text-base font-semibold">
+              <input value={maxSize} onChange={(e) => setMaxSize(e.target.value)} className="pm-input" />
             </Field>
           </>
         )}
       </div>
 
-      <style>{`.input{height:2.25rem;width:100%;border-radius:0.375rem;border:1px solid var(--color-border);background:var(--color-surface);padding:0 0.625rem;font-size:0.8125rem;outline:none}.input:focus{border-color:var(--color-primary)}`}</style>
+      <style>{`
+        .pm-input{height:2.75rem;width:100%;border-radius:0.5rem;border:1px solid var(--color-border);background:var(--color-surface);padding:0 0.875rem;font-size:0.875rem;color:var(--color-foreground);outline:none;transition:border-color .15s,box-shadow .15s}
+        .pm-input::placeholder{color:var(--color-muted-foreground);font-weight:400;opacity:1}
+        .pm-input-with-icon{padding-left:2.25rem}
+        .pm-input:focus{border-color:var(--color-primary);box-shadow:0 0 0 3px color-mix(in oklab, var(--color-primary) 18%, transparent)}
+        [contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:var(--color-muted-foreground);pointer-events:none}
+      `}</style>
     </Modal>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/* ---------- pieces ---------- */
+
+function Field({ label, children, labelClass }: { label: string; children: React.ReactNode; labelClass?: string }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-medium">{label}</div>
+      <div className={cn("mb-2 text-sm font-medium text-foreground", labelClass)}>{label}</div>
       {children}
     </div>
   );
 }
 
-function Toggle({ label, on, setOn }: { label: string; on: boolean; setOn: (v: boolean) => void }) {
+function ToggleRow({ label, hint, on, setOn }: { label: string; hint: string; on: boolean; setOn: (v: boolean) => void }) {
   return (
-    <label className="inline-flex items-center gap-2 text-sm">
+    <div className="flex items-start gap-3">
       <button
         type="button"
         onClick={() => setOn(!on)}
-        className={cn("relative h-5 w-9 rounded-full transition-colors", on ? "bg-primary" : "bg-border-strong")}
+        className={cn(
+          "relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20",
+          on ? "border-primary bg-primary" : "border-[#d0d5dd] bg-[#e5e9ef]",
+        )}
+        aria-pressed={on}
       >
-        <span className={cn("absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform", on ? "translate-x-4" : "translate-x-0.5")} />
+        <span
+          className={cn(
+            "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(16,24,40,0.22)] transition-transform",
+            on ? "translate-x-5" : "translate-x-0",
+          )}
+        />
       </button>
-      {label}
-    </label>
-  );
-}
-
-function UnitsField({ unit, setUnit, units, setUnits }: { unit: string; setUnit: (s: string) => void; units: string[]; setUnits: (a: string[]) => void }) {
-  return (
-    <div>
-      <div className="mb-1 text-xs font-medium">Unit</div>
-      <div className="flex gap-2">
-        <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="e.g. g/dL" className="input flex-1" />
-        <button onClick={() => { if (unit) { setUnits([...units, unit]); setUnit(""); } }} className="rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground">Add</button>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {units.map((u, i) => (
-          <span key={i} className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2.5 py-0.5 text-xs font-medium text-primary">
-            {u}
-            <button onClick={() => setUnits(units.filter((_, k) => k !== i))}><X className="h-3 w-3" /></button>
-          </span>
-        ))}
+      <div className="leading-tight">
+        <div className="text-sm font-semibold text-foreground">{label}</div>
+        <div className="text-xs text-muted-foreground">{hint}</div>
       </div>
     </div>
   );
+}
+
+function UnitField({
+  unit, setUnit, units, setUnits, addUnit, placeholder,
+}: {
+  unit: string; setUnit: (s: string) => void;
+  units: string[]; setUnits: (a: string[]) => void;
+  addUnit: () => void; placeholder?: string;
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-medium text-foreground">Unit</div>
+      <div className="flex w-1/2 gap-2">
+        <input
+          value={unit}
+          onChange={(e) => setUnit(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addUnit(); } }}
+          placeholder={placeholder ?? "e.g. g/dL"}
+          className="pm-input flex-1"
+        />
+        <button onClick={addUnit} className="rounded-lg bg-foreground px-6 text-sm font-semibold text-background hover:opacity-90">
+          Add
+        </button>
+      </div>
+      {units.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {units.map((u, i) => (
+            <span key={i} className="inline-flex items-center gap-2 rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
+              {u}
+              <button onClick={() => setUnits(units.filter((_, k) => k !== i))} className="opacity-60 hover:opacity-100">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RangeRow({
+  r, onChange, onRemove,
+}: {
+  r: RefRange;
+  onChange: (patch: Partial<RefRange>) => void;
+  onRemove: () => void;
+}) {
+  const isRange = r.type === "Range";
+  const preview = (() => {
+    const who = `${r.gender === "All" ? "All Gender" : r.gender}`;
+    const age = r.ageFrom || r.ageTo ? `, ${r.ageFrom || "0"}-${r.ageTo || "∞"} yrs` : "";
+    const head = `Reference (${who}${age}): `;
+    if (isRange) return `${head}${r.min || "—"} – ${r.max || "—"} ${r.label || ""}`.trim();
+    if (r.type === "Less-than") return `${head}<${r.value || "—"} ${r.label || ""}`.trim();
+    return `${head}>${r.value || "—"} ${r.label || ""}`.trim();
+  })();
+
+  const Label = ({ children }: { children: React.ReactNode }) => (
+    <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</div>
+  );
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-12 sm:items-end">
+        <div className="sm:col-span-2">
+          <Label>Gender</Label>
+          <SelectInput
+            value={r.gender}
+            onChange={(v) => onChange({ gender: v as Gender })}
+            options={["All", "Male", "Female"]}
+          />
+        </div>
+        <div className="sm:col-span-1">
+          <Label>Age (from)</Label>
+          <input className="pm-input" value={r.ageFrom} onChange={(e) => onChange({ ageFrom: e.target.value })} />
+        </div>
+        <div className="sm:col-span-1">
+          <Label>Age (to)</Label>
+          <input className="pm-input" value={r.ageTo} onChange={(e) => onChange({ ageTo: e.target.value })} />
+        </div>
+        <div className="sm:col-span-2">
+          <Label>Type</Label>
+          <SelectInput
+            value={r.type}
+            onChange={(v) => onChange({ type: v as RangeType })}
+            options={["Range", "Less-than", "Greater-than"]}
+          />
+        </div>
+        {isRange ? (
+          <>
+            <div className="sm:col-span-2">
+              <Label>Min Value</Label>
+              <input className="pm-input" value={r.min} onChange={(e) => onChange({ min: e.target.value })} />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Max Value</Label>
+              <input className="pm-input" value={r.max} onChange={(e) => onChange({ max: e.target.value })} />
+            </div>
+          </>
+        ) : (
+          <div className="sm:col-span-4">
+            <Label>Value</Label>
+            <input className="pm-input" value={r.value} onChange={(e) => onChange({ value: e.target.value })} />
+          </div>
+        )}
+        <div className="sm:col-span-1">
+          <Label>Label</Label>
+          <input className="pm-input" value={r.label} onChange={(e) => onChange({ label: e.target.value })} placeholder="Normal" />
+        </div>
+        <div className="flex items-end justify-end sm:col-span-1">
+          <button
+            onClick={onRemove}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-danger/40 text-danger hover:bg-danger-soft"
+            aria-label="Remove range"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 text-xs">
+        <span className="text-muted-foreground">Preview:- </span>
+        <span className="font-medium text-primary">{preview}</span>
+      </div>
+    </div>
+  );
+}
+
+function SelectInput({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) {
+  return (
+    <div className="relative">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="pm-input appearance-none pr-8">
+        {options.map((o) => <option key={o}>{o}</option>)}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  );
+}
+
+function ToolBtn({ children }: { children: React.ReactNode }) {
+  return <button className="rounded-md p-1.5 hover:bg-muted">{children}</button>;
+}
+
+function Divider() {
+  return <span className="mx-1 h-5 w-px bg-border" />;
+}
+
+/* Renders a simple "CODE = expr" preview, with ÷ handled as a fraction. */
+function FormulaPreview({ code, expr }: { code: string; expr: string }) {
+  const trimmed = expr.trim();
+  const idx = trimmed.indexOf("÷");
+  if (idx > -1) {
+    const num = trimmed.slice(0, idx).trim().replace(/^\(|\)$/g, "").trim();
+    const den = trimmed.slice(idx + 1).trim();
+    return (
+      <span className="inline-flex items-center gap-3">
+        <span>{code} =</span>
+        <span className="inline-flex flex-col items-center leading-tight">
+          <span className="border-b border-foreground px-2 pb-0.5">{num}</span>
+          <span className="px-2 pt-0.5">{den}</span>
+        </span>
+      </span>
+    );
+  }
+  return <span>{code} = {trimmed}</span>;
 }
