@@ -666,7 +666,7 @@ function TestRowAction({ order, ot }: { order: Order; ot: OrderTest }) {
         search={{ mode: "view" }}
         className="inline-flex h-8 items-center rounded-[8px] border border-foreground px-3.5 text-[11px] font-semibold hover:bg-muted sm:h-9 sm:px-4 sm:text-[12px]"
       >
-        Publish →
+        View Result →
       </Link>
     );
   }

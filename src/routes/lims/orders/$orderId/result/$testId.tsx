@@ -1,7 +1,7 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Check, ChevronDown, Folder, Upload } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Eye, FileSignature, Folder, Upload } from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PatientAvatar } from "@/components/lims/PatientCard";
@@ -52,6 +52,7 @@ function ResultEntryPage() {
   ) as Order;
   const getPatient = useLimsStore((s) => s.getPatient);
   const setTestStatus = useLimsStore((s) => s.setTestStatus);
+  const publishTest = useLimsStore((s) => s.publishTest);
   const patient = getPatient(order.patientId);
   const test = getTest(testId);
 
@@ -161,27 +162,43 @@ function ResultEntryPage() {
     navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
   };
 
+  const handlePublish = () => {
+    publishTest(order.id, testId);
+    toast.success("Result published");
+    navigate({ to: "/lims/orders/$orderId/report/$testId", params: { orderId: order.id, testId } });
+  };
+
   const handleReturn = () => {
     setTestStatus(order.id, testId, "in_progress");
     toast.error("Returned to technician");
     navigate({ to: "/lims/orders/$orderId", params: { orderId: order.id } });
   };
 
+  if (readOnly) {
+    return (
+      <ResultPublishPreview
+        order={order}
+        testId={testId}
+        onPublish={handlePublish}
+      />
+    );
+  }
+
   return (
     <div className="bg-background">
       <PageHeader
-        title={isApprove ? "Approve Result" : readOnly ? "Result Preview" : "Result Entry"}
+        title={isApprove ? "Approve Result" : "Result Entry"}
         backTo="/lims/orders/$orderId"
       />
 
       <div className="mx-auto w-full max-w-[1320px] px-3 pb-10 sm:px-4 lg:px-6">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_378px] xl:items-start">
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_378px] 2xl:items-start">
           <div className="space-y-5">
             <section className="rounded-[15px] border border-[#ece7dc] bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)]">
               <div className="flex flex-col gap-4 px-5 pb-5 pt-6 sm:px-7 sm:pb-7">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                   <div>
-                    <h2 className="font-['DM_Sans'] text-[29px] font-bold tracking-[-0.03em] text-[#1a1915]">
+                    <h2 className="font-['DM_Sans'] text-[24px] font-bold tracking-[-0.03em] text-[#1a1915] sm:text-[29px]">
                       {test.shortName ?? test.code} - {test.name}
                     </h2>
                     {isEntry ? (
@@ -194,7 +211,7 @@ function ResultEntryPage() {
                     )}
                   </div>
 
-                  <div className="flex min-w-[190px] flex-col items-start gap-2 text-left lg:items-end lg:text-right">
+                  <div className="flex min-w-[190px] flex-col items-start gap-2 text-left 2xl:items-end 2xl:text-right">
                     {isEntry && (
                       <div className="font-['DM_Sans'] text-[18px] font-medium text-[#b1aca1]">
                         Order {order.number}
@@ -334,6 +351,8 @@ function ResultEntryPage() {
                     </MetaField>
                   </div>
 
+                  {isApprove && <DigitalSignatureBlock doctor={approvedBy} />}
+
                   {isApprove ? (
                     <div className="flex flex-wrap gap-4">
                       <Link
@@ -367,7 +386,7 @@ function ResultEntryPage() {
             </section>
           </div>
 
-          <aside className="xl:sticky xl:top-6">
+          <aside className="2xl:sticky 2xl:top-6">
             <section className="rounded-[15px] border border-[#ece7dc] bg-white">
               <div className="flex items-center justify-between border-b border-[#ece7dc] px-5 py-4">
                 <div className="font-['DM_Sans'] text-[16px] font-semibold text-[#1a1915]">
@@ -620,6 +639,196 @@ function SupplementaryCard({
         )}
       </div>
     </section>
+  );
+}
+
+const cbcReportRows = [
+  { label: "HAEMOGLOBIN", result: "15", unit: "mg/dL", reference: "13.0-17.0" },
+  { label: "WBC COUNT", result: "8", unit: "x10³", reference: "4.0-11.0" },
+  { label: "PLATELET COUNT", result: "160", unit: "x10³", reference: "150-400" },
+  { label: "MCV", result: "80", unit: "fL", reference: "80-100" },
+  { label: "MCH", result: "30", unit: "pg", reference: "27-32" },
+  { label: "MCHC", result: "34", unit: "U/L", reference: "35-140" },
+];
+
+function ResultPublishPreview({
+  order,
+  testId,
+  onPublish,
+}: {
+  order: Order;
+  testId: string;
+  onPublish: () => void;
+}) {
+  const getPatient = useLimsStore((s) => s.getPatient);
+  const patient = getPatient(order.patientId);
+  const test = getTest(testId);
+
+  if (!patient || !test) {
+    return (
+      <div className="p-8 text-center text-sm text-muted-foreground">
+        Test not found.{" "}
+        <Link to="/lims/orders/$orderId" params={{ orderId: order.id }} className="text-primary">
+          Back to order
+        </Link>
+      </div>
+    );
+  }
+
+  const initials = patient.name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const reportRows =
+    test.id === "CBC-001"
+      ? cbcReportRows
+      : (test.parameters ?? []).map((parameter) => ({
+          label: parameter.parameter.toUpperCase(),
+          result: String((parameter.rangeLow + parameter.rangeHigh) / 2),
+          unit: parameter.unit,
+          reference: `${parameter.rangeLow}-${parameter.rangeHigh}`,
+        }));
+
+  return (
+    <div className="bg-background">
+      <PageHeader title="Result" backTo="/lims/orders/$orderId" />
+
+      <div className="mx-auto w-full max-w-[1180px] px-3 pb-10 sm:px-4 lg:px-6">
+        <section className="overflow-hidden rounded-[15px] border border-[#ece7dc] bg-white">
+          <div className="flex flex-col gap-4 border-b border-[#ece7dc] px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary">
+                {initials}
+              </div>
+              <div>
+                <div className="text-[17px] font-bold tracking-[-0.02em] text-[#1a1915]">
+                  {patient.name}
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[#6b6960]">
+                  <span className="rounded-full bg-[#f0efe9] px-2.5 py-1 font-semibold text-[#1a1915]">
+                    {patient.id}
+                  </span>
+                  <span>
+                    {patient.age} yr · {patient.gender}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/lims/orders/$orderId/report/$testId"
+                params={{ orderId: order.id, testId }}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[9px] bg-[#1a1915] px-4 text-[13px] font-semibold text-white"
+              >
+                <Eye className="h-4 w-4" />
+                Preview Report
+              </Link>
+              <button
+                onClick={onPublish}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-[9px] bg-primary px-4 text-[13px] font-semibold text-white"
+              >
+                <Check className="h-4 w-4" />
+                Publish Results
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#f5f4f1] px-3 py-4 sm:px-6 sm:py-6">
+            <article className="mx-auto max-w-[920px] rounded-[12px] border border-[#dcd8cf] bg-white px-4 py-5 shadow-[0_1px_2px_rgba(26,25,21,0.04)] sm:px-7 sm:py-7">
+              <header className="border-b border-[#e5e1d8] pb-5">
+                <h2 className="text-[22px] font-bold tracking-[-0.03em] text-[#1a1915]">
+                  {test.shortName ?? test.code} — {test.name}
+                </h2>
+                <p className="mt-1 text-[13px] text-[#6b6960]">
+                  Entered by Tech. Sreeja R · 9:12 AM
+                </p>
+              </header>
+
+              <div className="mt-6 overflow-x-auto rounded-[10px] border border-[#ded9cf]">
+                <table className="min-w-[640px] w-full border-collapse text-[13px]">
+                  <thead className="bg-[#eeeae2] text-left text-[11px] font-bold uppercase tracking-[0.08em] text-[#6b6960]">
+                    <tr>
+                      <th className="px-4 py-3">Test Result</th>
+                      <th className="px-4 py-3 text-right">Result</th>
+                      <th className="px-4 py-3">Unit</th>
+                      <th className="px-4 py-3">Ref Range</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#e8e3da]">
+                    {reportRows.map((row) => (
+                      <tr key={row.label}>
+                        <td className="px-4 py-4 font-semibold text-[#1a1915]">{row.label}</td>
+                        <td className="px-4 py-4 text-right font-bold text-[#1a1915]">{row.result}</td>
+                        <td className="px-4 py-4 text-[#6b6960]">{row.unit}</td>
+                        <td className="px-4 py-4 text-[#6b6960]">{row.reference}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <ReportBox title="PERIPHERAL BLOOD FILM">
+                <span className="font-bold text-[#1a1915]">Macrocytic</span>
+              </ReportBox>
+
+              <ReportBox title="CLINICAL INTERPRETATION / REMARKS">
+                <span className="font-bold text-[#1a1915]">Normal CBC</span>
+              </ReportBox>
+
+              <ReportBox title="INSTRUMENT PRINTOUT / IMAGE">
+                <div className="inline-flex min-w-[220px] items-center gap-3 rounded-[9px] border border-[#e2e0d8] bg-[#faf9f7] px-4 py-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-[9px] bg-white text-[#8c887d]">
+                    <Folder className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-[14px] font-semibold text-[#1a1915]">Image</div>
+                    <div className="text-[12px] text-[#6b6960]">36 KB | PNG</div>
+                  </div>
+                </div>
+              </ReportBox>
+
+              <footer className="mt-8 flex justify-end border-t border-[#e5e1d8] pt-6">
+                <div className="text-right">
+                  <div className="text-[15px] font-bold text-[#1a1915]">Dr. Rekha Suresh</div>
+                  <div className="mt-1 text-[12px] text-[#6b6960]">MD Pathology · Lab Director</div>
+                  <div className="mt-1 text-[12px] text-[#8c887d]">
+                    Digitally verified · 17 Mar 2026, 11:30 AM
+                  </div>
+                </div>
+              </footer>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ReportBox({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mt-5 rounded-[10px] border border-[#ded9cf] px-4 py-4">
+      <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6b6960]">{title}</div>
+      <div className="mt-3 text-[14px] text-[#1a1915]">{children}</div>
+    </section>
+  );
+}
+
+function DigitalSignatureBlock({ doctor }: { doctor: string }) {
+  return (
+    <div className="mt-5 flex max-w-[460px] items-center gap-3 rounded-[12px] border border-violet/30 bg-violet-soft/60 px-4 py-3">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-violet/40 bg-white text-violet">
+        <FileSignature className="h-5 w-5" />
+      </div>
+      <div>
+        <div className="text-[12px] font-bold uppercase tracking-[0.06em] text-violet">
+          Digital Signature
+        </div>
+        <div className="mt-0.5 text-[14px] font-semibold text-[#1a1915]">{doctor}</div>
+      </div>
+    </div>
   );
 }
 
