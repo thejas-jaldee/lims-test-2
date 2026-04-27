@@ -143,7 +143,7 @@ function LimsDashboard() {
   return (
     <div className="flex flex-col gap-4">
       {/* Header + Quick Actions */}
-      <section className="rounded-[12px] bg-surface px-4 pb-4 pt-5 shadow-[var(--shadow-card)]">
+      <section className="rounded-[12px] bg-surface px-4 mt-2 pb-4 pt-5 shadow-[var(--shadow-card)]">
         <h1 className="text-[26px] font-bold tracking-[-0.05em] text-black">LIMS Dashboard</h1>
         <p className="mt-1 text-[14px] font-medium tracking-[-0.03em] text-[oklch(0.78_0.02_250)]">
           Welcome back! Here&apos;s your lab overview.

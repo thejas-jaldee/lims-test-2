@@ -1,7 +1,14 @@
-import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+﻿import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarDays, Check, ChevronDown, Eye, FileSignature, Folder, Upload } from "lucide-react";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  FileSignature,
+  Folder,
+  Upload,
+} from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PatientAvatar } from "@/components/lims/PatientCard";
@@ -191,14 +198,14 @@ function ResultEntryPage() {
         backTo="/lims/orders/$orderId"
       />
 
-      <div className="mx-auto w-full max-w-[1320px] px-3 pb-10 sm:px-4 lg:px-6">
-        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_378px] 2xl:items-start">
+      <div className="mx-auto w-full  px-3 pb-10 sm:px-4 lg:px-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_378px] xl:items-start">
           <div className="space-y-5">
             <section className="rounded-[15px] border border-[#ece7dc] bg-white shadow-[0_1px_0_rgba(0,0,0,0.02)]">
               <div className="flex flex-col gap-4 px-5 pb-5 pt-6 sm:px-7 sm:pb-7">
-                <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                   <div>
-                    <h2 className="font-['DM_Sans'] text-[24px] font-bold tracking-[-0.03em] text-[#1a1915] sm:text-[29px]">
+                    <h2 className="font-['DM_Sans'] text-[24px] font-bold tracking-[-0.03em] text-[#1a1915] sm:text-[26px]">
                       {test.shortName ?? test.code} - {test.name}
                     </h2>
                     {isEntry ? (
@@ -211,7 +218,7 @@ function ResultEntryPage() {
                     )}
                   </div>
 
-                  <div className="flex min-w-[190px] flex-col items-start gap-2 text-left 2xl:items-end 2xl:text-right">
+                  <div className="flex min-w-[190px] flex-col items-start gap-2 text-left xl:items-end xl:text-right">
                     {isEntry && (
                       <div className="font-['DM_Sans'] text-[18px] font-medium text-[#b1aca1]">
                         Order {order.number}
@@ -265,58 +272,58 @@ function ResultEntryPage() {
               </div>
             </section>
 
-            <section className="rounded-[15px] border border-[#ece7dc] bg-white px-7 py-7">
+            <section className="rounded-[15px] border border-[#ece7dc] bg-white px-4 py-4 sm:px-5 sm:py-5 md:px-6 md:py-6">
               {isEntry ? (
                 <>
-                  <div className="grid gap-5 lg:grid-cols-[285px_218px_208px]">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(180px,1fr)_minmax(150px,214px)_minmax(160px,204px)]">
                     <MetaField label="Entered By" required>
                       <button
                         type="button"
-                        className="flex h-10 w-full items-center justify-between rounded-[9px] border border-[#e2e0d8] px-3 text-[14px] text-[#1a1915]"
+                        className="flex h-9 w-full items-center justify-between rounded-[8px] border border-[#e2e0d8] px-2.5 text-[13px] text-[#1a1915]"
                       >
                         <span>{enteredBy}</span>
-                        <ChevronDown className="h-4 w-4 text-[#8c887d]" />
+                        <ChevronDown className="h-3.5 w-3.5 text-[#8c887d]" />
                       </button>
                     </MetaField>
                     <MetaField label="Date" required>
-                      <div className="flex h-10 items-center justify-between rounded-[9px] border border-[#e2e0d8] px-3 text-[14px] text-[#1a1915]">
+                      <div className="flex h-9 items-center justify-between rounded-[8px] border border-[#e2e0d8] px-2.5 text-[13px] text-[#1a1915]">
                         <span>17 - 03 - 2026</span>
-                        <CalendarDays className="h-4 w-4 text-[#8c887d]" />
+                        <CalendarDays className="h-3.5 w-3.5 text-[#8c887d]" />
                       </div>
                     </MetaField>
                     <MetaField label="Time" required>
-                      <div className="grid h-10 grid-cols-[1fr_18px_1fr_79px] overflow-hidden rounded-[9px] border border-[#e2e0d8] text-[14px] text-[#1a1915]">
+                      <div className="grid h-9 grid-cols-[1fr_16px_1fr_75px] overflow-hidden rounded-[8px] border border-[#e2e0d8] text-[13px] text-[#1a1915]">
                         <div className="flex items-center justify-center">05</div>
                         <div className="flex items-center justify-center">:</div>
                         <div className="flex items-center justify-center">51</div>
-                        <div className="flex items-center justify-between border-l border-[#e2e0d8] bg-[#f0f0f0] px-3">
+                        <div className="flex items-center justify-between border-l border-[#e2e0d8] bg-[#f0f0f0] px-2.5">
                           <span>PM</span>
-                          <ChevronDown className="h-4 w-4 text-[#8c887d]" />
+                          <ChevronDown className="h-3.5 w-3.5 text-[#8c887d]" />
                         </div>
                       </div>
                     </MetaField>
                   </div>
 
-                  <div className="mt-8 flex flex-wrap gap-5">
+                  <div className="mt-6 flex flex-wrap gap-4">
                     <Link
                       to="/lims/orders/$orderId"
                       params={{ orderId: order.id }}
-                      className="inline-flex h-[58px] min-w-[152px] items-center justify-center rounded-[12px] border border-[#e2e0d8] px-6 font-['DM_Sans'] text-[20px] font-medium text-[#6b6960]"
+                      className="inline-flex h-[45px] min-w-[125px] items-center justify-center rounded-[10px] border border-[#e2e0d8] px-5 font-['DM_Sans'] text-[14px] font-medium text-[#6b6960] sm:h-[45px] sm:min-w-[120px] sm:text-[14px]"
                     >
                       Cancel
                     </Link>
                     <button
                       onClick={handleSubmit}
-                      className="inline-flex h-[58px] min-w-[227px] items-center justify-center gap-3 rounded-[12px] bg-primary px-8 font-['DM_Sans'] text-[20px] font-semibold text-white"
+                      className="inline-flex h-[45px] min-w-[175px] items-center justify-center gap-2.5 rounded-[10px] bg-primary px-6 font-['DM_Sans'] text-[14px] font-semibold text-white sm:h-[45px] sm:min-w-[200px] sm:text-[14px]"
                     >
-                      <Check className="h-5 w-5" />
+                      <Check className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                       Save &amp; Submit
                     </button>
                   </div>
                 </>
               ) : (
-                <div className="space-y-6">
-                  <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_218px_208px]">
+                <div className="space-y-5">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(180px,1fr)_minmax(150px,214px)_minmax(160px,204px)]">
                     <MetaField label={isApprove ? "Approved By" : "Entered By"} required={isApprove}>
                       <button
                         type="button"
@@ -326,26 +333,26 @@ function ResultEntryPage() {
                             current === "Dr. Rekha Suresh" ? "Dr. Anand K." : "Dr. Rekha Suresh",
                           )
                         }
-                        className="flex h-10 w-full items-center justify-between rounded-[9px] border border-[#e2e0d8] px-3 text-[14px] text-[#1a1915]"
+                        className="flex h-9 w-full items-center justify-between rounded-[8px] border border-[#e2e0d8] px-2.5 text-[13px] text-[#1a1915]"
                       >
                         <span>{isApprove ? approvedBy : enteredBy}</span>
-                        {isApprove && <ChevronDown className="h-4 w-4 text-[#8c887d]" />}
+                        {isApprove && <ChevronDown className="h-3.5 w-3.5 text-[#8c887d]" />}
                       </button>
                     </MetaField>
                     <MetaField label="Date" required={isApprove}>
-                      <div className="flex h-10 items-center justify-between rounded-[9px] border border-[#e2e0d8] px-3 text-[14px] text-[#1a1915]">
+                      <div className="flex h-9 items-center justify-between rounded-[8px] border border-[#e2e0d8] px-2.5 text-[13px] text-[#1a1915]">
                         <span>17 - 03 - 2026</span>
-                        <CalendarDays className="h-4 w-4 text-[#8c887d]" />
+                        <CalendarDays className="h-3.5 w-3.5 text-[#8c887d]" />
                       </div>
                     </MetaField>
                     <MetaField label="Time" required={isApprove}>
-                      <div className="grid h-10 grid-cols-[1fr_18px_1fr_79px] overflow-hidden rounded-[9px] border border-[#e2e0d8] text-[14px] text-[#1a1915]">
+                      <div className="grid h-9 grid-cols-[1fr_16px_1fr_75px] overflow-hidden rounded-[8px] border border-[#e2e0d8] text-[13px] text-[#1a1915]">
                         <div className="flex items-center justify-center">05</div>
                         <div className="flex items-center justify-center">:</div>
                         <div className="flex items-center justify-center">51</div>
-                        <div className="flex items-center justify-between border-l border-[#e2e0d8] bg-[#f0f0f0] px-3">
+                        <div className="flex items-center justify-between border-l border-[#e2e0d8] bg-[#f0f0f0] px-2.5">
                           <span>PM</span>
-                          {isApprove && <ChevronDown className="h-4 w-4 text-[#8c887d]" />}
+                          {isApprove && <ChevronDown className="h-3.5 w-3.5 text-[#8c887d]" />}
                         </div>
                       </div>
                     </MetaField>
@@ -354,23 +361,23 @@ function ResultEntryPage() {
                   {isApprove && <DigitalSignatureBlock doctor={approvedBy} />}
 
                   {isApprove ? (
-                    <div className="flex flex-wrap gap-4">
+                    <div className="flex flex-wrap gap-3 sm:gap-4">
                       <Link
                         to="/lims/orders/$orderId"
                         params={{ orderId: order.id }}
-                        className="inline-flex h-[52px] min-w-[144px] items-center justify-center rounded-[12px] border border-[#e2e0d8] px-6 text-[16px] text-[#6b6960]"
+                        className="inline-flex h-12 min-w-[124px] items-center justify-center rounded-[10px] border border-[#e2e0d8] px-5 text-[15px] text-[#6b6960] sm:min-w-[140px]"
                       >
                         Cancel
                       </Link>
                       <button
                         onClick={handleReturn}
-                        className="inline-flex h-[52px] min-w-[144px] items-center justify-center rounded-[12px] border border-[#f0c6c1] bg-[#fff3f1] px-6 text-[16px] font-medium text-[#b53a2d]"
+                        className="inline-flex h-12 min-w-[124px] items-center justify-center rounded-[10px] border border-[#f0c6c1] bg-[#fff3f1] px-5 text-[15px] font-medium text-[#b53a2d] sm:min-w-[140px]"
                       >
                         Return
                       </button>
                       <button
                         onClick={handleApprove}
-                        className="inline-flex h-[52px] min-w-[188px] items-center justify-center gap-3 rounded-[12px] bg-primary px-6 text-[16px] font-semibold text-white"
+                        className="inline-flex h-12 min-w-[168px] items-center justify-center gap-2.5 rounded-[10px] bg-primary px-5 text-[15px] font-semibold text-white sm:min-w-[184px]"
                       >
                         <Check className="h-4 w-4" />
                         Approve Result
@@ -386,7 +393,7 @@ function ResultEntryPage() {
             </section>
           </div>
 
-          <aside className="2xl:sticky 2xl:top-6">
+          <aside className="xl:sticky xl:top-6">
             <section className="rounded-[15px] border border-[#ece7dc] bg-white">
               <div className="flex items-center justify-between border-b border-[#ece7dc] px-5 py-4">
                 <div className="font-['DM_Sans'] text-[16px] font-semibold text-[#1a1915]">
@@ -434,7 +441,7 @@ function ProgressPill({
   const percentage = Math.min(100, (filledCount / totalFields) * 100);
 
   return (
-    <div className="mt-4 flex w-full max-w-[406px] items-center gap-4 rounded-full border border-[#e2e0d8] px-4 py-2.5">
+    <div className="mt-4 flex w-full max-w-[406px] items-center gap-4 rounded-full border border-[#e2e0d8] px-4 py-1.5">
       <div className="h-[5px] flex-1 rounded-full bg-[#e7e2d8]">
         <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${percentage}%` }} />
       </div>
@@ -695,138 +702,150 @@ function ResultPublishPreview({
     <div className="bg-background">
       <PageHeader title="Result" backTo="/lims/orders/$orderId" />
 
-      <div className="mx-auto w-full max-w-[1180px] px-3 pb-10 sm:px-4 lg:px-6">
-        <section className="overflow-hidden rounded-[15px] border border-[#ece7dc] bg-white">
-          <div className="flex flex-col gap-4 border-b border-[#ece7dc] px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto w-full px-3 pb-10 sm:px-4 lg:px-0">
+        <section className="flex flex-col gap-4 rounded-[8px] bg-white px-4 pb-24 pt-4 sm:px-7 sm:pt-5 md:px-8 md:pb-36 md:pt-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary">
+              <div className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-[#e4eeeb] text-[16px] font-bold text-primary sm:h-[60px] sm:w-[60px] sm:text-[19px]">
                 {initials}
               </div>
               <div>
-                <div className="text-[17px] font-bold tracking-[-0.02em] text-[#1a1915]">
-                  {patient.name}
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[#6b6960]">
-                  <span className="rounded-full bg-[#f0efe9] px-2.5 py-1 font-semibold text-[#1a1915]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-[15px] font-bold leading-tight tracking-[-0.03em] text-[#1a1915] sm:text-[19px]">
+                    {patient.name}
+                  </div>
+                  <span className="rounded-[6px] bg-[#eef1f7] px-2 py-0.5 text-[10px] font-bold tracking-[0.04em] text-[#1d3f70]">
                     {patient.id}
                   </span>
-                  <span>
-                    {patient.age} yr · {patient.gender}
-                  </span>
+                </div>
+                <div className="mt-1 text-[13px] leading-tight text-[#6b6960] sm:text-[15px]">
+                  {patient.age} yr · {patient.gender}
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2.5 sm:gap-3">
               <Link
                 to="/lims/orders/$orderId/report/$testId"
                 params={{ orderId: order.id, testId }}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-[9px] bg-[#1a1915] px-4 text-[13px] font-semibold text-white"
+                className="inline-flex h-[40px] min-w-[132px] items-center justify-center rounded-[8px] bg-[#171717] px-4 text-[11px] font-medium text-white sm:h-[46px] sm:min-w-[142px] sm:text-[12px]"
               >
-                <Eye className="h-4 w-4" />
                 Preview Report
               </Link>
               <button
                 onClick={onPublish}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-[9px] bg-primary px-4 text-[13px] font-semibold text-white"
+                className="inline-flex h-[40px] min-w-[142px] items-center justify-center rounded-[8px] bg-primary px-4 text-[11px] font-medium text-white sm:h-[46px] sm:min-w-[155px] sm:text-[12px]"
               >
-                <Check className="h-4 w-4" />
                 Publish Results
               </button>
             </div>
           </div>
 
-          <div className="bg-[#f5f4f1] px-3 py-4 sm:px-6 sm:py-6">
-            <article className="mx-auto max-w-[920px] rounded-[12px] border border-[#dcd8cf] bg-white px-4 py-5 shadow-[0_1px_2px_rgba(26,25,21,0.04)] sm:px-7 sm:py-7">
-              <header className="border-b border-[#e5e1d8] pb-5">
-                <h2 className="text-[22px] font-bold tracking-[-0.03em] text-[#1a1915]">
-                  {test.shortName ?? test.code} — {test.name}
-                </h2>
-                <p className="mt-1 text-[13px] text-[#6b6960]">
-                  Entered by Tech. Sreeja R · 9:12 AM
-                </p>
-              </header>
+          <article className="overflow-hidden rounded-[8px] border border-[#ddd8cf] bg-white">
+            <header className="border-b border-[#ddd8cf] px-4 py-5 sm:px-5 sm:py-6">
+              <h2 className="text-[15px] font-bold leading-tight tracking-[-0.02em] text-primary sm:text-[18px]">
+                {test.shortName ?? test.code} — {test.name}
+              </h2>
+              <p className="mt-1 text-[11px] leading-tight text-[#6b6960] sm:text-[13px]">
+                Entered by Tech. Sreeja R · 9:12 AM
+              </p>
+            </header>
 
-              <div className="mt-6 overflow-x-auto rounded-[10px] border border-[#ded9cf]">
-                <table className="min-w-[640px] w-full border-collapse text-[13px]">
-                  <thead className="bg-[#eeeae2] text-left text-[11px] font-bold uppercase tracking-[0.08em] text-[#6b6960]">
-                    <tr>
-                      <th className="px-4 py-3">Test Result</th>
-                      <th className="px-4 py-3 text-right">Result</th>
-                      <th className="px-4 py-3">Unit</th>
-                      <th className="px-4 py-3">Ref Range</th>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[660px] border-collapse text-[13px] sm:text-[14px]">
+                <thead className="bg-[#f0efea] text-left text-[10px] font-bold uppercase tracking-[0.08em] text-[#9d9991] sm:text-[11px]">
+                  <tr>
+                    <th className="w-[41%] border-b border-[#ddd8cf] px-4 py-3 sm:px-5">Test Result</th>
+                    <th className="w-[7%] border-b border-[#ddd8cf] px-4 py-3 sm:px-5">Result</th>
+                    <th className="w-[28%] border-b border-[#ddd8cf] px-4 py-3 sm:px-5"></th>
+                    <th className="w-[24%] border-b border-[#ddd8cf] px-4 py-3 sm:px-5">Ref Range</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportRows.map((row) => (
+                    <tr key={row.label}>
+                      <td className="border-b border-[#ddd8cf] px-4 py-4 font-normal text-[#1a1915] sm:px-5 sm:py-5">
+                        {row.label}
+                      </td>
+                      <td className="border-b border-[#ddd8cf] px-4 py-4 font-bold text-[#1a1915] sm:px-5 sm:py-5">
+                        {row.result}
+                      </td>
+                      <td className="border-b border-[#ddd8cf] px-4 py-4 text-[#6b6960] sm:px-5 sm:py-5">
+                        {row.unit}
+                      </td>
+                      <td className="border-b border-[#ddd8cf] px-4 py-4 text-[#6b6960] sm:px-5 sm:py-5">
+                        {row.reference}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#e8e3da]">
-                    {reportRows.map((row) => (
-                      <tr key={row.label}>
-                        <td className="px-4 py-4 font-semibold text-[#1a1915]">{row.label}</td>
-                        <td className="px-4 py-4 text-right font-bold text-[#1a1915]">{row.result}</td>
-                        <td className="px-4 py-4 text-[#6b6960]">{row.unit}</td>
-                        <td className="px-4 py-4 text-[#6b6960]">{row.reference}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <section className="rounded-[8px] border border-[#ddd8cf] bg-white px-4 py-5 sm:px-5 sm:py-7">
+            <div className="text-[15px] uppercase leading-tight text-[#1a1915] sm:text-[15px]">
+              Peripheral Blood Film: <span className="font-bold normal-case">Macrocytic</span>
+            </div>
+          </section>
+
+          <section className="rounded-[8px] border border-[#ddd8cf] bg-white px-4 py-5 sm:px-5 sm:py-6">
+            <div className="text-[15px] uppercase leading-tight text-[#1a1915] sm:text-[15px]">
+              Clinical Interpretation / Remarks
+            </div>
+            <div className="mt-5 text-[15px] font-bold leading-tight text-[#1a1915] sm:text-[15px]">
+              Normal CBC
+            </div>
+          </section>
+
+          <section className="rounded-[8px] border border-[#ddd8cf] bg-white px-4 py-5 sm:px-5 sm:py-6">
+            <div className="text-[15px] uppercase leading-tight text-[#1a1915] sm:text-[15px]">
+              Instrument Printout / Image
+            </div>
+            <div className="mt-5 rounded-[8px] border border-[#d8d3c8] px-5 py-4">
+              <div className="flex items-center gap-4">
+                <Folder className="h-8 w-8 text-[#6b6960]" />
+                <div>
+                  <div className="text-[12px] font-bold leading-tight text-[#1a1915] sm:text-[13px]">
+                    Image
+                  </div>
+                  <div className="mt-1.5 text-[10px] leading-tight text-[#6b6960] sm:text-[11px]">
+                    36 KB | PNG
+                  </div>
+                </div>
               </div>
+            </div>
+          </section>
 
-              <ReportBox title="PERIPHERAL BLOOD FILM">
-                <span className="font-bold text-[#1a1915]">Macrocytic</span>
-              </ReportBox>
-
-              <ReportBox title="CLINICAL INTERPRETATION / REMARKS">
-                <span className="font-bold text-[#1a1915]">Normal CBC</span>
-              </ReportBox>
-
-              <ReportBox title="INSTRUMENT PRINTOUT / IMAGE">
-                <div className="inline-flex min-w-[220px] items-center gap-3 rounded-[9px] border border-[#e2e0d8] bg-[#faf9f7] px-4 py-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-[9px] bg-white text-[#8c887d]">
-                    <Folder className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="text-[14px] font-semibold text-[#1a1915]">Image</div>
-                    <div className="text-[12px] text-[#6b6960]">36 KB | PNG</div>
-                  </div>
-                </div>
-              </ReportBox>
-
-              <footer className="mt-8 flex justify-end border-t border-[#e5e1d8] pt-6">
-                <div className="text-right">
-                  <div className="text-[15px] font-bold text-[#1a1915]">Dr. Rekha Suresh</div>
-                  <div className="mt-1 text-[12px] text-[#6b6960]">MD Pathology · Lab Director</div>
-                  <div className="mt-1 text-[12px] text-[#8c887d]">
-                    Digitally verified · 17 Mar 2026, 11:30 AM
-                  </div>
-                </div>
-              </footer>
-            </article>
-          </div>
+          <footer className="mt-16 border-t border-[#ddd8cf] pt-7 text-right sm:mt-20">
+            <div className="ml-auto max-w-[420px]">
+              <div className="text-[17px] font-bold leading-tight text-[#1a1915] sm:text-[19px]">
+                Dr. Rekha Suresh
+              </div>
+              <div className="mt-2.5 text-[12px] leading-tight text-[#6b6960] sm:text-[14px]">
+                MD Pathology · Lab Director
+              </div>
+              <div className="mt-3 text-[10px] leading-tight text-[#9d9991] sm:text-[12px]">
+                Digitally verified · 17 Mar 2026, 11:30 AM
+              </div>
+            </div>
+          </footer>
         </section>
       </div>
     </div>
   );
 }
-
-function ReportBox({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="mt-5 rounded-[10px] border border-[#ded9cf] px-4 py-4">
-      <div className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#6b6960]">{title}</div>
-      <div className="mt-3 text-[14px] text-[#1a1915]">{children}</div>
-    </section>
-  );
-}
-
 function DigitalSignatureBlock({ doctor }: { doctor: string }) {
   return (
-    <div className="mt-5 flex max-w-[460px] items-center gap-3 rounded-[12px] border border-violet/30 bg-violet-soft/60 px-4 py-3">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border border-violet/40 bg-white text-violet">
-        <FileSignature className="h-5 w-5" />
+    <div className="mt-4 flex max-w-[456px] items-center gap-2.5 rounded-[10px] border border-violet/30 bg-violet-soft/60 px-3.5 py-2.5">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] border border-violet/40 bg-white text-violet">
+        <FileSignature className="h-4 w-4" />
       </div>
       <div>
-        <div className="text-[12px] font-bold uppercase tracking-[0.06em] text-violet">
+        <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-violet">
           Digital Signature
         </div>
-        <div className="mt-0.5 text-[14px] font-semibold text-[#1a1915]">{doctor}</div>
+        <div className="mt-0.5 text-[13px] font-semibold text-[#1a1915]">{doctor}</div>
       </div>
     </div>
   );
@@ -843,7 +862,7 @@ function MetaField({
 }) {
   return (
     <div>
-      <div className="mb-2 font-['Instrument_Sans'] text-[12px] font-bold uppercase tracking-[0.05em] text-[#6b6960]">
+      <div className="mb-1.5 font-['Instrument_Sans'] text-[11px] font-bold uppercase tracking-[0.05em] text-[#6b6960]">
         {label}
         {required && <span className="ml-1 text-danger">*</span>}
       </div>
