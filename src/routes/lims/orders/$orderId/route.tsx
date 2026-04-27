@@ -79,6 +79,7 @@ function OrderDetailsPage() {
   const location = useLocation();
   const order = useLimsStore((s) => s.orders.find((o) => o.id === orderId || o.number === orderId)) as Order;
   const collectSample = useLimsStore((s) => s.collectSample);
+  const splitSampleAction = useLimsStore((s) => s.splitSample);
   const assignTest = useLimsStore((s) => s.assignTest);
   const bulkSet = useLimsStore((s) => s.bulkSetTestStatus);
   const getPatient = useLimsStore((s) => s.getPatient);
@@ -442,7 +443,22 @@ function OrderDetailsPage() {
             toast.error("Select at least one test");
             return;
           }
-          toast.success(`Split action prepared for ${splitSelectedTestIds.length} test(s)`);
+          if (splitAction === "move" && !splitDestination.trim()) {
+            toast.error("Enter a destination specimen");
+            return;
+          }
+          splitSampleAction(order.id, splitSample.id, {
+            testIds: splitSelectedTestIds,
+            action: splitAction,
+            destinationId: splitDestination,
+          });
+          const actionText =
+            splitAction === "new"
+              ? "moved to a new specimen"
+              : splitAction === "move"
+                ? `moved to ${splitDestination.trim()}`
+                : "marked for recollection";
+          toast.success(`${splitSelectedTestIds.length} test(s) ${actionText}`);
           setSplitSample(null);
         }}
       />

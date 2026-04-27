@@ -61,6 +61,15 @@ interface LimsState {
   getOrder: (id: string) => Order | undefined;
   getPatient: (id: string) => Patient | undefined;
   collectSample: (orderId: string, sampleId: string, by: string) => void;
+  splitSample: (
+    orderId: string,
+    sourceSampleId: string,
+    details: {
+      testIds: string[];
+      action: "new" | "move" | "recollect";
+      destinationId?: string;
+    },
+  ) => void;
   assignTest: (orderId: string, testId: string, technician: string) => void;
   setTestStatus: (orderId: string, testId: string, status: TestStatus) => void;
   bulkSetTestStatus: (orderId: string, testIds: string[], status: TestStatus) => void;
@@ -117,6 +126,16 @@ const appendInvoiceActivity = (
   ],
 });
 
+const nextSampleId = (samples: OrderSample[], type: string) => {
+  const prefix = type.toUpperCase().slice(0, 3).replace(/[^A-Z0-9]/g, "") || "SMP";
+  const next =
+    samples.reduce((max, sample) => {
+      const match = sample.id.match(/(\d+)$/);
+      return match ? Math.max(max, Number(match[1])) : max;
+    }, 0) + 1;
+  return `SPM-${prefix}-${String(next).padStart(3, "0")}`;
+};
+
 export const useLimsStore = create<LimsState>((set, get) => ({
   orders: seedOrders,
   patients: seedPatients,
@@ -141,6 +160,64 @@ export const useLimsStore = create<LimsState>((set, get) => ({
             : t,
         ),
       })),
+    })),
+
+  splitSample: (orderId, sourceSampleId, details) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => {
+        const source = o.samples.find((sample) => sample.id === sourceSampleId);
+        if (!source) return o;
+
+        const selectedIds = details.testIds.filter((testId) => source.testIds.includes(testId));
+        if (selectedIds.length === 0) return o;
+
+        const selectedSet = new Set(selectedIds);
+        const remainingSourceIds = source.testIds.filter((testId) => !selectedSet.has(testId));
+        const destinationId =
+          details.action === "move" && details.destinationId?.trim()
+            ? details.destinationId.trim()
+            : nextSampleId(o.samples, source.type);
+        const destinationStatus: OrderSample["status"] = details.action === "recollect" ? "not_collected" : source.status;
+
+        const destinationSample: OrderSample = {
+          ...source,
+          id: destinationId,
+          status: destinationStatus,
+          testIds: selectedIds,
+          collectedBy: destinationStatus === "collected" ? source.collectedBy : undefined,
+          collectedAt: destinationStatus === "collected" ? source.collectedAt : undefined,
+        };
+
+        const samplesWithoutSource = o.samples.flatMap((sample): OrderSample[] => {
+          if (sample.id !== sourceSampleId) return [sample];
+          return remainingSourceIds.length > 0 ? [{ ...sample, testIds: remainingSourceIds }] : [];
+        });
+
+        const destinationExists = samplesWithoutSource.some((sample) => sample.id === destinationId);
+        const samples = destinationExists
+          ? samplesWithoutSource.map((sample): OrderSample => {
+              if (sample.id !== destinationId) return sample;
+              const mergedTestIds = Array.from(new Set([...sample.testIds, ...selectedIds]));
+              return {
+                ...sample,
+                status: destinationStatus,
+                testIds: mergedTestIds,
+                collectedBy: destinationStatus === "collected" ? sample.collectedBy ?? source.collectedBy : undefined,
+                collectedAt: destinationStatus === "collected" ? sample.collectedAt ?? source.collectedAt : undefined,
+              };
+            })
+          : [...samplesWithoutSource, destinationSample];
+
+        return {
+          ...o,
+          samples,
+          tests: o.tests.map((test): OrderTest =>
+            selectedSet.has(test.testId) && details.action === "recollect"
+              ? { ...test, status: "pending" }
+              : test,
+          ),
+        };
+      }),
     })),
 
   assignTest: (orderId, testId, technician) =>
