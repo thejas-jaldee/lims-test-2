@@ -6,10 +6,15 @@ import {
   MoreHorizontal,
   UserPlus,
   Eye,
+  X,
   CheckCheck,
   Beaker,
   ClipboardList,
   Send,
+  GitBranch,
+  RefreshCw,
+  Plus,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -88,6 +93,10 @@ function OrderDetailsPage() {
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
   const [drawerSample, setDrawerSample] = useState<OrderSample | null>(null);
   const [sampleDetails, setSampleDetails] = useState<OrderSample | null>(null);
+  const [splitSample, setSplitSample] = useState<OrderSample | null>(null);
+  const [splitAction, setSplitAction] = useState<"new" | "move" | "recollect">("move");
+  const [splitDestination, setSplitDestination] = useState("SPM-BLD-002");
+  const [splitSelectedTestIds, setSplitSelectedTestIds] = useState<string[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [selectedTechnician, setSelectedTechnician] = useState("Tech. Sreeja R.");
@@ -271,6 +280,12 @@ function OrderDetailsPage() {
                 order={order}
                 onCollect={() => setDrawerSample(s)}
                 onViewDetails={() => setSampleDetails(s)}
+                onSplitSample={() => {
+                  setSplitSample(s);
+                  setSplitAction("move");
+                  setSplitDestination("SPM-BLD-002");
+                  setSplitSelectedTestIds(s.testIds);
+                }}
                 onAssignTest={(tid) => {
                   setAssignFor(tid);
                   const assignedTech = order.tests.find((t) => t.testId === tid)?.assignedTo;
@@ -412,6 +427,26 @@ function OrderDetailsPage() {
         )}
       </Modal>
 
+      <SplitSampleModal
+        order={order}
+        sample={splitSample}
+        selectedTestIds={splitSelectedTestIds}
+        splitAction={splitAction}
+        destination={splitDestination}
+        onSelectedTestIdsChange={setSplitSelectedTestIds}
+        onSplitActionChange={setSplitAction}
+        onDestinationChange={setSplitDestination}
+        onClose={() => setSplitSample(null)}
+        onConfirm={() => {
+          if (!splitSample || splitSelectedTestIds.length === 0) {
+            toast.error("Select at least one test");
+            return;
+          }
+          toast.success(`Split action prepared for ${splitSelectedTestIds.length} test(s)`);
+          setSplitSample(null);
+        }}
+      />
+
       <Modal open={profileOpen} onClose={() => setProfileOpen(false)} title="Patient Profile" width="md">
         <div className="space-y-3 p-5 text-sm">
           <Row label="Name" value={patient.name} />
@@ -489,12 +524,14 @@ function SampleCard({
   order,
   onCollect,
   onViewDetails,
+  onSplitSample,
   onAssignTest,
 }: {
   sample: OrderSample;
   order: Order;
   onCollect: () => void;
   onViewDetails: () => void;
+  onSplitSample: () => void;
   onAssignTest: (testId: string) => void;
 }) {
   const isCollected = sample.status === "collected";
@@ -568,9 +605,18 @@ function SampleCard({
                         setMenuOpen(false);
                         onCollect();
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger hover:bg-danger-soft"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
                     >
                       <Beaker className="h-4 w-4" /> Recollect Sample
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onSplitSample();
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                    >
+                      <GitBranch className="h-4 w-4" /> Split Sample
                     </button>
                   </div>
                 </>
@@ -628,6 +674,228 @@ function SampleCard({
         </ul>
       </div>
     </section>
+  );
+}
+
+function SplitSampleModal({
+  order,
+  sample,
+  selectedTestIds,
+  splitAction,
+  destination,
+  onSelectedTestIdsChange,
+  onSplitActionChange,
+  onDestinationChange,
+  onClose,
+  onConfirm,
+}: {
+  order: Order;
+  sample: OrderSample | null;
+  selectedTestIds: string[];
+  splitAction: "new" | "move" | "recollect";
+  destination: string;
+  onSelectedTestIdsChange: (ids: string[]) => void;
+  onSplitActionChange: (action: "new" | "move" | "recollect") => void;
+  onDestinationChange: (value: string) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!sample) return null;
+
+  const sampleTests: OrderTest[] = sample.testIds
+    .map((id) => order.tests.find((t) => t.testId === id))
+    .filter((t): t is OrderTest => Boolean(t));
+  const actionLabel =
+    splitAction === "new"
+      ? "Create new specimen"
+      : splitAction === "move"
+        ? `Move to ${destination || "selected specimen"}`
+        : "Mark for recollection";
+
+  const toggleTest = (testId: string, checked: boolean) => {
+    onSelectedTestIdsChange(
+      checked ? [...selectedTestIds, testId] : selectedTestIds.filter((id) => id !== testId),
+    );
+  };
+
+  return (
+    <Modal
+      open={!!sample}
+      onClose={onClose}
+      width="2xl"
+      className="max-w-[1040px] rounded-[14px]"
+      bodyClassName="max-h-[82vh] overflow-y-auto"
+    >
+      <div className="p-4 sm:p-5">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-warning-soft text-warning">
+              <GitBranch className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-[-0.03em] text-foreground sm:text-[16px]">
+                Split {sample.type} Sample
+              </h2>
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Choose tests and target specimen action.
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,1fr)_240px]">
+          <section className="rounded-[12px] border border-border bg-surface p-3">
+            <div className="mb-3 text-[12px] font-semibold text-foreground">Select tests</div>
+            <div className="space-y-2">
+              {sampleTests.map((ot) => {
+                const test = getTest(ot.testId);
+                if (!test) return null;
+                const checked = selectedTestIds.includes(ot.testId);
+                return (
+                  <label
+                    key={ot.testId}
+                    className={cn(
+                      "flex min-h-[68px] cursor-pointer items-center gap-3 rounded-[10px] border px-3 py-2.5 transition",
+                      checked ? "border-warning bg-warning-soft/45" : "border-border hover:bg-muted",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => toggleTest(ot.testId, e.target.checked)}
+                      className="h-4 w-4 shrink-0 accent-info"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[12px] font-semibold text-foreground sm:text-[13px]">
+                        {test.name} ({test.shortName ?? test.code})
+                      </div>
+                      <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">
+                        {sample.type} / Serum / {sample.id}
+                      </div>
+                    </div>
+                    <StatusPill tone="success" label="Collected" dot={false} className="px-2 py-1 text-[10px]" />
+                  </label>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="rounded-[12px] border border-border bg-surface p-3">
+            <div className="mb-3 text-[12px] font-semibold text-foreground">Split action</div>
+            <div className="space-y-2">
+              <SplitActionCard
+                checked={splitAction === "new"}
+                icon={<Plus className="h-4 w-4" />}
+                title="Create new specimen"
+                description="Create a fresh specimen for selected tests."
+                onChange={() => onSplitActionChange("new")}
+              />
+              <SplitActionCard
+                checked={splitAction === "move"}
+                icon={<GitBranch className="h-4 w-4" />}
+                title="Move to another specimen"
+                description="Attach to an existing specimen instance."
+                onChange={() => onSplitActionChange("move")}
+                activeClassName="border-warning bg-warning-soft/45"
+              >
+                <input
+                  value={destination}
+                  onChange={(e) => onDestinationChange(e.target.value)}
+                  className="mt-2 h-9 w-full rounded-[8px] border border-border bg-surface px-3 text-[12px] font-medium outline-none focus:border-primary"
+                />
+              </SplitActionCard>
+              <SplitActionCard
+                checked={splitAction === "recollect"}
+                icon={<RefreshCw className="h-4 w-4" />}
+                title="Mark for recollection"
+                description="Keep selected tests pending for fresh collection."
+                onChange={() => onSplitActionChange("recollect")}
+              />
+            </div>
+          </section>
+
+          <aside className="rounded-[12px] border border-border bg-[#f5f5f5] p-4 shadow-[var(--shadow-card)]">
+            <div className="flex items-center gap-2 text-[12px] font-semibold text-foreground">
+              <ArrowLeftRight className="h-4 w-4" /> Preview
+            </div>
+            <dl className="mt-4 space-y-2 text-[12px]">
+              <div>
+                <dt className="text-muted-foreground">Selected</dt>
+                <dd className="font-semibold text-foreground">{selectedTestIds.length}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Source</dt>
+                <dd className="font-semibold text-foreground">{sample.type}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Result</dt>
+                <dd className="font-semibold text-foreground">{actionLabel}</dd>
+              </div>
+            </dl>
+            <div className="mt-4 rounded-[10px] border border-border bg-muted px-3 py-2 text-[11px] font-semibold text-muted-foreground">
+              {sample.id}
+            </div>
+            <div className="mt-6 flex gap-2">
+              <button
+                onClick={onClose}
+                className="h-9 flex-1 rounded-[8px] border border-border bg-surface px-3 text-[12px] font-semibold text-foreground hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onConfirm}
+                disabled={selectedTestIds.length === 0}
+                className="h-9 flex-1 rounded-[8px] bg-violet px-3 text-[12px] font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirm
+              </button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function SplitActionCard({
+  checked,
+  icon,
+  title,
+  description,
+  onChange,
+  children,
+  activeClassName = "border-primary bg-primary-soft/35",
+}: {
+  checked: boolean;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  onChange: () => void;
+  children?: React.ReactNode;
+  activeClassName?: string;
+}) {
+  return (
+    <label
+      className={cn(
+        "block cursor-pointer rounded-[10px] border border-border p-3 transition hover:bg-muted",
+        checked && activeClassName,
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <input type="radio" checked={checked} onChange={onChange} className="mt-1 h-3.5 w-3.5 accent-info" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-[12px] font-semibold text-foreground">
+            <span className="text-muted-foreground">{icon}</span>
+            {title}
+          </div>
+          <div className="mt-1 text-[10px] text-muted-foreground sm:text-[11px]">{description}</div>
+          {children}
+        </div>
+      </div>
+    </label>
   );
 }
 
