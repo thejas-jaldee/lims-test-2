@@ -27,6 +27,7 @@ import { SampleCollectionDrawer } from "@/components/lims/SampleCollectionDrawer
 import { Modal } from "@/components/lims/Modal";
 import {
   getTest,
+  referringDoctors,
   orderStatusMeta,
   testStatusMeta,
   formatDateTime,
@@ -81,6 +82,7 @@ function OrderDetailsPage() {
   const collectSample = useLimsStore((s) => s.collectSample);
   const splitSampleAction = useLimsStore((s) => s.splitSample);
   const assignTest = useLimsStore((s) => s.assignTest);
+  const updateOrderMeta = useLimsStore((s) => s.updateOrderMeta);
   const bulkSet = useLimsStore((s) => s.bulkSetTestStatus);
   const getPatient = useLimsStore((s) => s.getPatient);
 
@@ -98,6 +100,10 @@ function OrderDetailsPage() {
   const [splitAction, setSplitAction] = useState<"new" | "move" | "recollect">("move");
   const [splitDestination, setSplitDestination] = useState("SPM-BLD-002");
   const [splitSelectedTestIds, setSplitSelectedTestIds] = useState<string[]>([]);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editPriority, setEditPriority] = useState(order.priority);
+  const [editDoctor, setEditDoctor] = useState(order.referredBy);
+  const [editSource, setEditSource] = useState<Order["source"]>(order.source);
   const [profileOpen, setProfileOpen] = useState(false);
   const [assignFor, setAssignFor] = useState<string | null>(null);
   const [selectedTechnician, setSelectedTechnician] = useState("Tech. Sreeja R.");
@@ -192,7 +198,15 @@ function OrderDetailsPage() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <Barcode value={`${order.number}-${patient.id.replace("PAT-", "")}`} className="sm:mr-2 lg:mr-4" />
-            <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[8px] border border-border px-3 text-[11px] font-semibold text-primary hover:bg-muted sm:h-9 sm:text-[12px] lg:h-10 sm:min-w-[120px]">
+            <button
+              onClick={() => {
+                setEditPriority(order.priority);
+                setEditDoctor(order.referredBy);
+                setEditSource(order.source);
+                setEditOpen(true);
+              }}
+              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[8px] border border-border px-3 text-[11px] font-semibold text-primary hover:bg-muted sm:h-9 sm:text-[12px] lg:h-10 sm:min-w-[120px]"
+            >
               <Edit3 className="h-4 w-4" /> Edit Order
             </button>
             <Link
@@ -463,6 +477,85 @@ function OrderDetailsPage() {
         }}
       />
 
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit Order"
+        width="md"
+        footer={
+          <>
+            <button
+              onClick={() => setEditOpen(false)}
+              className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                updateOrderMeta(order.id, {
+                  priority: editPriority,
+                  referredBy: editDoctor,
+                  source: editSource,
+                });
+                toast.success("Order updated");
+                setEditOpen(false);
+              }}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              Save Changes
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4 p-5">
+          <EditField label="Priority">
+            <div className="flex gap-2">
+              {(["normal", "urgent"] as const).map((priority) => (
+                <button
+                  key={priority}
+                  type="button"
+                  onClick={() => setEditPriority(priority)}
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-sm font-medium capitalize",
+                    editPriority === priority
+                      ? "border-primary bg-primary-soft text-primary"
+                      : "border-border hover:bg-muted",
+                  )}
+                >
+                  {priority}
+                </button>
+              ))}
+            </div>
+          </EditField>
+          <EditField label="Referred By">
+            <select
+              value={editDoctor}
+              onChange={(event) => setEditDoctor(event.target.value)}
+              className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm outline-none"
+            >
+              {referringDoctors.map((doctor) => (
+                <option key={doctor} value={doctor}>
+                  {doctor}
+                </option>
+              ))}
+            </select>
+          </EditField>
+          <EditField label="Source">
+            <select
+              value={editSource}
+              onChange={(event) => setEditSource(event.target.value as Order["source"])}
+              className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm outline-none"
+            >
+              {(["Walk-in", "Referral", "OPD", "IPD"] as const).map((source) => (
+                <option key={source} value={source}>
+                  {source}
+                </option>
+              ))}
+            </select>
+          </EditField>
+        </div>
+      </Modal>
+
       <Modal open={profileOpen} onClose={() => setProfileOpen(false)} title="Patient Profile" width="md">
         <div className="space-y-3 p-5 text-sm">
           <Row label="Name" value={patient.name} />
@@ -531,6 +624,15 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-start justify-between gap-4">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-right font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      {children}
     </div>
   );
 }

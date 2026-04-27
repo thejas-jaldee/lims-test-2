@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Download, Mail, MapPin, Phone, Printer, Share2 } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { getTest, type Order } from "@/data/lims";
 import { useLimsStore } from "@/store/limsStore";
@@ -34,6 +35,7 @@ function ReportView() {
   const getPatient = useLimsStore((s) => s.getPatient);
   const test = getTest(testId);
   const patient = getPatient(order.patientId);
+  const [layout, setLayout] = useState<"Classic Standard" | "Compact Clinical">("Classic Standard");
 
   if (!test || !patient) return <div className="p-8 text-center">Report not found.</div>;
 
@@ -46,6 +48,46 @@ function ReportView() {
           unit: parameter.unit,
           reference: `${parameter.rangeLow}-${parameter.rangeHigh}`,
         }));
+
+  const reportUrl =
+    typeof window === "undefined"
+      ? `/lims/orders/${order.id}/report/${testId}`
+      : `${window.location.origin}/lims/orders/${order.id}/report/${testId}`;
+
+  const handlePrint = () => {
+    if (typeof window !== "undefined") window.print();
+    toast.success("Report sent to printer");
+  };
+
+  const handleShare = async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(reportUrl);
+      }
+      toast.success("Report link copied");
+    } catch {
+      toast.error("Unable to copy report link");
+    }
+  };
+
+  const handleDownload = () => {
+    const content = [
+      "Global Care Hospital",
+      `Report: ${test.name}`,
+      `Order: ${order.number}`,
+      `Patient: ${patient.name} (${patient.id})`,
+      "",
+      ...reportRows.map((row) => `${row.test}: ${row.result} ${row.unit ?? ""} | Ref ${row.reference}`),
+    ].join("\n");
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${order.number}-${test.id}-report.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Report downloaded");
+  };
 
   return (
     <div className="bg-surface-muted pb-9">
@@ -63,15 +105,24 @@ function ReportView() {
             </Link>
 
             <div className="flex flex-wrap gap-2.5">
-              <button className="inline-flex h-[36px] items-center justify-center gap-1.5 rounded-[6px] bg-[#d9d9db] px-4 text-[11px] font-bold text-[#101010]">
+              <button
+                onClick={handlePrint}
+                className="inline-flex h-[36px] items-center justify-center gap-1.5 rounded-[6px] bg-[#d9d9db] px-4 text-[11px] font-bold text-[#101010]"
+              >
                 <Printer className="h-3.5 w-3.5" />
                 Print
               </button>
-              <button className="inline-flex h-[36px] items-center justify-center gap-1.5 rounded-[6px] border border-border bg-surface px-4 text-[11px] font-bold text-[#101010]">
+              <button
+                onClick={() => void handleShare()}
+                className="inline-flex h-[36px] items-center justify-center gap-1.5 rounded-[6px] border border-border bg-surface px-4 text-[11px] font-bold text-[#101010]"
+              >
                 <Share2 className="h-3.5 w-3.5" />
                 Share
               </button>
-              <button className="inline-flex h-[36px] items-center justify-center gap-1.5 rounded-[6px] bg-black px-5 text-[11px] font-bold text-white">
+              <button
+                onClick={handleDownload}
+                className="inline-flex h-[36px] items-center justify-center gap-1.5 rounded-[6px] bg-black px-5 text-[11px] font-bold text-white"
+              >
                 <Download className="h-3.5 w-3.5" />
                 Download
               </button>
@@ -82,8 +133,17 @@ function ReportView() {
         <section className="mt-3 rounded-[9px] bg-surface px-3 py-4 sm:px-4 lg:px-8">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-[#1a1915]">
             <span>Selected Report Layout :</span>
-            <span className="text-[14px] font-bold">Classic Standard</span>
-            <button className="font-bold text-primary underline underline-offset-4">Change</button>
+            <span className="text-[14px] font-bold">{layout}</span>
+            <button
+              onClick={() =>
+                setLayout((current) =>
+                  current === "Classic Standard" ? "Compact Clinical" : "Classic Standard",
+                )
+              }
+              className="font-bold text-primary underline underline-offset-4"
+            >
+              Change
+            </button>
           </div>
 
           <div className="mt-4 grid gap-4 2xl:grid-cols-[minmax(0,1fr)_385px]">

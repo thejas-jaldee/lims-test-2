@@ -14,7 +14,9 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Modal } from "@/components/lims/Modal";
 import { PriorityDot, StatusPill } from "@/components/lims/StatusPill";
 import { formatDateTime, orderStatusMeta, type OrderStatus } from "@/data/lims";
 import { cn } from "@/lib/utils";
@@ -45,6 +47,7 @@ const STATUS_OPTIONS: Array<{ key: OrderStatus | "all"; label: string }> = [
 function OrdersListPage() {
   const orders = useLimsStore((s) => s.orders);
   const getPatient = useLimsStore((s) => s.getPatient);
+  const cancelOrder = useLimsStore((s) => s.cancelOrder);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | "normal" | "urgent">("all");
@@ -52,6 +55,7 @@ function OrdersListPage() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [cancelFor, setCancelFor] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -71,6 +75,15 @@ function OrdersListPage() {
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const cancelTarget = cancelFor ? orders.find((o) => o.id === cancelFor || o.number === cancelFor) : null;
+
+  const handlePrintSlip = (orderId: string) => {
+    setMenuFor(null);
+    toast.success(`Collection slip queued for ${orderId}`);
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
 
   return (
     <div className="flex flex-col">
@@ -297,10 +310,19 @@ function OrdersListPage() {
                               >
                                 <FileText className="h-4 w-4" /> View Invoice
                               </Link>
-                              <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted">
+                              <button
+                                onClick={() => handlePrintSlip(o.id)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                              >
                                 <Printer className="h-4 w-4" /> Print Slip
                               </button>
-                              <button className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger hover:bg-danger-soft">
+                              <button
+                                onClick={() => {
+                                  setCancelFor(o.id);
+                                  setMenuFor(null);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger hover:bg-danger-soft"
+                              >
                                 <Trash2 className="h-4 w-4" /> Cancel Order
                               </button>
                             </div>
@@ -369,6 +391,38 @@ function OrdersListPage() {
           </div>
         </div>
       </section>
+
+      <Modal
+        open={!!cancelTarget}
+        onClose={() => setCancelFor(null)}
+        title="Cancel Order"
+        width="sm"
+        footer={
+          <>
+            <button
+              onClick={() => setCancelFor(null)}
+              className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-muted"
+            >
+              Keep Order
+            </button>
+            <button
+              onClick={() => {
+                if (!cancelTarget) return;
+                cancelOrder(cancelTarget.id);
+                toast.success(`${cancelTarget.number} cancelled`);
+                setCancelFor(null);
+              }}
+              className="rounded-md bg-danger px-4 py-2 text-sm font-semibold text-danger-foreground"
+            >
+              Cancel Order
+            </button>
+          </>
+        }
+      >
+        <div className="p-5 text-sm text-muted-foreground">
+          This removes {cancelTarget?.number} from the active order queue.
+        </div>
+      </Modal>
     </div>
   );
 }

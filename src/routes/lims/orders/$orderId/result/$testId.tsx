@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Modal } from "@/components/lims/Modal";
 import { PatientAvatar } from "@/components/lims/PatientCard";
 import { type Order, getTest } from "@/data/lims";
 import { cn } from "@/lib/utils";
@@ -137,8 +138,11 @@ function ResultEntryPage() {
   const [interpretation, setInterpretation] = useState(
     isEntry ? "" : "Macrocytic pattern noted. Correlate clinically with B12 / folate status.",
   );
-  const [enteredBy] = useState("Tech. Sreeja R");
+  const [enteredBy, setEnteredBy] = useState("Tech. Sreeja R");
   const [approvedBy, setApprovedBy] = useState("Dr. Rekha Suresh");
+  const [instructionOpen, setInstructionOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [attachmentName, setAttachmentName] = useState("");
 
   if (!patient || !test) {
     return (
@@ -224,7 +228,11 @@ function ResultEntryPage() {
                         Order {order.number}
                       </div>
                     )}
-                    <button className="text-[13px] font-medium text-primary underline underline-offset-2">
+                    <button
+                      type="button"
+                      onClick={() => setInstructionOpen(true)}
+                      className="text-[13px] font-medium text-primary underline underline-offset-2"
+                    >
                       View Clinical Instruction
                     </button>
                   </div>
@@ -254,6 +262,7 @@ function ResultEntryPage() {
                       index={baseParameters.length + index + 1}
                       readOnly={readOnly}
                       isApprove={isApprove}
+                      attachmentName={attachmentName}
                       value={
                         field.id === "clinicalInterpretation"
                           ? interpretation
@@ -266,6 +275,7 @@ function ResultEntryPage() {
                         }
                         setValues((state) => ({ ...state, [field.id]: next }));
                       }}
+                      onAttachmentChange={setAttachmentName}
                     />
                   ))}
                 </div>
@@ -279,6 +289,11 @@ function ResultEntryPage() {
                     <MetaField label="Entered By" required>
                       <button
                         type="button"
+                        onClick={() =>
+                          setEnteredBy((current) =>
+                            current === "Tech. Sreeja R" ? "Tech. Anand" : "Tech. Sreeja R",
+                          )
+                        }
                         className="flex h-9 w-full items-center justify-between rounded-[8px] border border-[#e2e0d8] px-2.5 text-[13px] text-[#1a1915]"
                       >
                         <span>{enteredBy}</span>
@@ -399,7 +414,11 @@ function ResultEntryPage() {
                 <div className="font-['DM_Sans'] text-[16px] font-semibold text-[#1a1915]">
                   Patient
                 </div>
-                <button className="rounded-[10px] border border-[#e2e0d8] px-3 py-1.5 text-[12px] font-medium text-[#6b6960]">
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(true)}
+                  className="rounded-[10px] border border-[#e2e0d8] px-3 py-1.5 text-[12px] font-medium text-[#6b6960]"
+                >
                   View Profile
                 </button>
               </div>
@@ -427,6 +446,27 @@ function ResultEntryPage() {
           </aside>
         </div>
       </div>
+
+      <Modal open={instructionOpen} onClose={() => setInstructionOpen(false)} title="Clinical Instruction" width="md">
+        <div className="space-y-3 p-5 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-border bg-surface-muted p-4">
+            <div className="font-semibold text-foreground">{test.name}</div>
+            <div className="mt-1">Specimen: {test.specimen}</div>
+            <div>Container: {test.container ?? "Standard container"}</div>
+            <div>Shelf life: {test.shelfLife ?? "As per lab SOP"}</div>
+          </div>
+          <p>Verify patient identity, sample ID, analyzer calibration, and reference ranges before submitting results.</p>
+        </div>
+      </Modal>
+
+      <Modal open={profileOpen} onClose={() => setProfileOpen(false)} title="Patient Profile" width="md">
+        <div className="space-y-3 p-5 text-sm">
+          <PatientRow label="Patient ID" value={patient.id} />
+          <PatientRow label="Phone" value={patient.phone} />
+          <PatientRow label="Email" value={patient.email} />
+          <PatientRow label="Age / Gender" value={`${patient.age} yr / ${patient.gender}`} />
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -519,15 +559,19 @@ function SupplementaryCard({
   index,
   readOnly,
   isApprove,
+  attachmentName,
   value,
   onValueChange,
+  onAttachmentChange,
 }: {
   field: SupplementaryField;
   index: number;
   readOnly: boolean;
   isApprove: boolean;
+  attachmentName: string;
   value: string;
   onValueChange: (value: string) => void;
+  onAttachmentChange: (value: string) => void;
 }) {
   return (
     <section className="overflow-hidden rounded-[9px] border border-[#e2e0d8] bg-white">
@@ -550,15 +594,17 @@ function SupplementaryCard({
               <div className="text-[15px] font-medium text-[#1a1915]">{value || "-"}</div>
             ) : (
               <div className="ml-auto flex w-full max-w-[336px] overflow-hidden rounded-[8px] border border-[#e2e0d8]">
-                <button
-                  type="button"
-                  className="flex h-[38px] min-w-0 flex-1 items-center justify-between bg-white px-4 text-[13px] text-[#1a1915]"
+                <select
+                  value={value}
+                  onChange={(event) => onValueChange(event.target.value)}
+                  className="h-[38px] min-w-0 flex-1 appearance-none bg-white px-4 text-[13px] text-[#1a1915] outline-none"
                 >
-                  <span className={cn(!value && "text-[#8c887d]")}>
-                    {value || field.choices?.[0] || "Select"}
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 text-[#8c887d]" />
-                </button>
+                  {(field.choices ?? ["Select"]).map((choice) => (
+                    <option key={choice} value={choice === "Select" ? "" : choice}>
+                      {choice}
+                    </option>
+                  ))}
+                </select>
                 {field.unit && (
                   <button
                     type="button"
@@ -630,17 +676,22 @@ function SupplementaryCard({
                 </div>
               </div>
             ) : (
-              <div className="rounded-[9px] border-2 border-dashed border-[#cccac0] bg-[#f0efe9] px-4 py-8 text-center">
+              <label className="block cursor-pointer rounded-[9px] border-2 border-dashed border-[#cccac0] bg-[#f0efe9] px-4 py-8 text-center hover:bg-[#e9e7df]">
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(event) => onAttachmentChange(event.target.files?.[0]?.name ?? "")}
+                />
                 <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#8c887d]">
                   <Upload className="h-5 w-5" />
                 </div>
                 <div className="mt-3 font-['DM_Sans'] text-[14px] font-semibold text-[#1a1915]">
-                  Drop files or click to upload
+                  {attachmentName || "Drop files or click to upload"}
                 </div>
                 <div className="mt-1 text-[12px] text-[#6b6960]">
                   JPG, PNG, PDF, TIFF · Max 10 MB
                 </div>
-              </div>
+              </label>
             )}
           </>
         )}

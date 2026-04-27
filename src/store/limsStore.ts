@@ -60,6 +60,11 @@ interface LimsState {
 
   getOrder: (id: string) => Order | undefined;
   getPatient: (id: string) => Patient | undefined;
+  updateOrderMeta: (
+    orderId: string,
+    details: Partial<Pick<Order, "priority" | "referredBy" | "source">>,
+  ) => void;
+  cancelOrder: (orderId: string) => void;
   collectSample: (orderId: string, sampleId: string, by: string) => void;
   splitSample: (
     orderId: string,
@@ -144,6 +149,19 @@ export const useLimsStore = create<LimsState>((set, get) => ({
 
   getOrder: (id) => get().orders.find((o) => o.id === id || o.number === id),
   getPatient: (id) => get().patients.find((p) => p.id === id),
+
+  updateOrderMeta: (orderId, details) =>
+    set((s) => ({
+      orders: updateOrder(s.orders, orderId, (o) => ({
+        ...o,
+        ...details,
+      })),
+    })),
+
+  cancelOrder: (orderId) =>
+    set((s) => ({
+      orders: s.orders.filter((o) => o.id !== orderId && o.number !== orderId),
+    })),
 
   collectSample: (orderId, sampleId, by) =>
     set((s) => ({
